@@ -216,6 +216,7 @@ describe("S3 agent platform repository", () => {
       await repository.listMessageCitations(actor, message.id),
     ).toMatchObject([
       {
+        chunkId: chunk?.id,
         filename: "assistant.md",
         knowledgeReleaseId: "release-2026-07-30",
       },

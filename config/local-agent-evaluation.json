@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "minimumPassRate": 0.8,
+  "cases": [
+    {
+      "id": "ollama-chat-endpoint",
+      "question": "이 프로젝트의 Ollama 채팅 어댑터가 사용하는 HTTP 엔드포인트와 근거 파일을 알려주세요.",
+      "answerMustInclude": ["/api/chat"],
+      "citationMustIncludeAny": ["packages/agent-ollama/src/index.ts"]
+    },
+    {
+      "id": "retrieval-without-opensearch",
+      "question": "이 시스템은 OpenSearch 없이 어떤 저장소와 검색 방식을 사용하도록 설계되어 있나요?",
+      "answerMustInclude": ["PostgreSQL", ["S3 Vectors", "S3 벡터"]],
+      "citationMustIncludeAny": ["docs/architecture.md"]
+    },
+    {
+      "id": "legacy-language-indexing",
+      "question": "로컬 소스 인덱서의 ALLOWED_EXTENSIONS 코드 기준으로 Java, Ruby, C#에 허용된 파일 확장자를 각각 알려주세요.",
+      "answerMustInclude": [".java", ".rb", ".cs"],
+      "answerMustNotInclude": [".class", ".rake"],
+      "citationMustIncludeAny": ["apps/indexer/src/index.ts"]
+    },
+    {
+      "id": "daily-improvement-policy",
+      "question": "이 에이전트의 개선 루프는 실시간 파인튜닝을 하나요? 예정된 주기와 검증 원칙을 설명해주세요.",
+      "answerMustInclude": [["실시간", "real-time"], ["daily", "매일"]],
+      "citationMustIncludeAny": [
+        "docs/architecture.md",
+        "docs/agent-platform.md"
+      ]
+    },
+    {
+      "id": "live-business-capabilities",
+      "question": "최근 공지와 일주일 내 판매 차량을 대화로 조회하려면 어떤 명시적 tRPC 기능을 사용하며 어떤 안전 제한이 있나요?",
+      "answerMustInclude": [
+        "notices.listRecent",
+        "vehicles.listSold",
+        "read-only"
+      ],
+      "citationMustIncludeAny": ["docs/architecture.md"]
+    },
+    {
+      "id": "official-drizzle-sources",
+      "question": "등록된 Drizzle ORM 공식 지식 소스 중 select와 migrations 문서 URL을 알려주세요.",
+      "answerMustInclude": [
+        "https://orm.drizzle.team/docs/select",
+        "https://orm.drizzle.team/docs/migrations"
+      ],
+      "citationMustIncludeAny": ["[official:drizzle]"]
+    }
+  ]
+}

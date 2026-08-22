@@ -10,22 +10,34 @@ import {
 test("parses Ollama model names", () => {
   assert.deepEqual(
     parseOllamaModels(
-      "NAME ID SIZE MODIFIED\nqwen2.5:3b abc 2 GB now\nnomic-embed-text def 274 MB now\n",
+      "NAME ID SIZE MODIFIED\nknowledge-agent-gemma3:12b abc 8.1 GB now\nnomic-embed-text def 274 MB now\n",
     ),
-    ["qwen2.5:3b", "nomic-embed-text"],
+    ["knowledge-agent-gemma3:12b", "nomic-embed-text"],
   );
 });
 
 test("identifies a missing embedding model", () => {
-  assert.deepEqual(missingRequiredModels(["qwen2.5:3b"]), ["nomic-embed-text"]);
+  assert.deepEqual(missingRequiredModels(["knowledge-agent-gemma3:12b"]), [
+    "nomic-embed-text",
+  ]);
+});
+
+test("accepts Ollama's explicit latest tag for an untagged requirement", () => {
+  assert.deepEqual(
+    missingRequiredModels([
+      "knowledge-agent-gemma3:12b",
+      "nomic-embed-text:latest",
+    ]),
+    [],
+  );
 });
 
 test("checks all required local models", () => {
   assert.deepEqual(
     checkLocalAgentDemo({
       execFile: () =>
-        "NAME ID SIZE MODIFIED\nqwen2.5:3b abc 2 GB now\nnomic-embed-text def 274 MB now\n",
+        "NAME ID SIZE MODIFIED\nknowledge-agent-gemma3:12b abc 8.1 GB now\nnomic-embed-text def 274 MB now\n",
     }),
-    { models: ["qwen2.5:3b", "nomic-embed-text"] },
+    { models: ["knowledge-agent-gemma3:12b", "nomic-embed-text"] },
   );
 });

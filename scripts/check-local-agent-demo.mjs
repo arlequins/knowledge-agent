@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 
-const DEFAULT_MODELS = ["qwen2.5:3b", "nomic-embed-text"];
+const DEFAULT_MODELS = ["knowledge-agent-gemma3:12b", "nomic-embed-text"];
 
 export function parseOllamaModels(output) {
   return output
@@ -12,7 +12,14 @@ export function parseOllamaModels(output) {
 }
 
 export function missingRequiredModels(models, required = DEFAULT_MODELS) {
-  return required.filter((model) => !models.includes(model));
+  const available = new Set(
+    models.flatMap((model) =>
+      model.endsWith(":latest")
+        ? [model, model.slice(0, -":latest".length)]
+        : [model],
+    ),
+  );
+  return required.filter((model) => !available.has(model));
 }
 
 export function checkLocalAgentDemo({ execFile = execFileSync } = {}) {

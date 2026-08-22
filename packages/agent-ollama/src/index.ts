@@ -8,13 +8,18 @@ export type OllamaModelProviderOptions = {
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
   model?: string;
+  /** Bounds local latency and prevents runaway reasoning from consuming the request timeout. */
+  numPredict?: number;
   requestTimeoutMs?: number;
+  /** Low deterministic sampling keeps local evaluation reproducible. */
+  seed?: number;
+  temperature?: number;
   /** Disable model reasoning traces by default; user-facing conversations receive final text only. */
   think?: boolean;
 };
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
-const DEFAULT_MODEL = "qwen2.5:3b";
+const DEFAULT_MODEL = "knowledge-agent-gemma3:12b";
 const DEFAULT_EMBEDDING_MODEL = "nomic-embed-text";
 
 function normalizedLocalBaseUrl(value: string): string {
@@ -53,6 +58,18 @@ async function* readNdjson(
   }
 }
 
+async function* finalAnswerChunks(
+  chunks: AsyncIterable<string>,
+): AsyncIterable<string> {
+  let content = "";
+  for await (const chunk of chunks) content += chunk;
+
+  const closing = content.lastIndexOf("</think>");
+  const answer =
+    closing >= 0 ? content.slice(closing + "</think>".length) : content;
+  if (answer) yield answer;
+}
+
 /** Local-only Ollama `/api/chat` adapter. No cloud credentials or SDK are involved. */
 export function createOllamaModelProvider(
   options: OllamaModelProviderOptions = {},
@@ -60,7 +77,10 @@ export function createOllamaModelProvider(
   const baseUrl = normalizedLocalBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
   const model = options.model?.trim() || DEFAULT_MODEL;
   const fetchImpl = options.fetch ?? globalThis.fetch;
+  const numPredict = options.numPredict ?? 768;
   const requestTimeoutMs = options.requestTimeoutMs ?? 120_000;
+  const seed = options.seed ?? 42;
+  const temperature = options.temperature ?? 0.1;
   const think = options.think ?? false;
 
   return {
@@ -71,32 +91,35 @@ export function createOllamaModelProvider(
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           model,
-          // Qwen3 honours this in-band control token even on Ollama releases
-          // that do not yet apply the `think` JSON option consistently.
-          messages: think
-            ? input.messages
-            : [{ role: "system", content: "/no_think" }, ...input.messages],
+          messages: input.messages,
+          options: { num_predict: numPredict, seed, temperature },
           stream: true,
           think,
         }),
         signal,
       });
       if (!response.ok) {
-        throw new Error(`Ollama request failed (${response.status})`);
+        const detail = (await response.text()).trim().slice(0, 300);
+        throw new Error(
+          `Ollama request failed (${response.status})${detail ? `: ${detail}` : ""}`,
+        );
       }
       if (!response.body)
         throw new Error("Ollama returned an empty response body");
 
-      for await (const item of readNdjson(response.body)) {
-        if (!item || typeof item !== "object") continue;
-        const message = (item as { message?: { content?: unknown } }).message;
-        if (
-          typeof message?.content === "string" &&
-          message.content.length > 0
-        ) {
-          yield message.content;
+      async function* contentChunks() {
+        for await (const item of readNdjson(response.body!)) {
+          if (!item || typeof item !== "object") continue;
+          const message = (item as { message?: { content?: unknown } }).message;
+          if (
+            typeof message?.content === "string" &&
+            message.content.length > 0
+          )
+            yield message.content;
         }
       }
+      if (think) yield* contentChunks();
+      else yield* finalAnswerChunks(contentChunks());
     },
   };
 }

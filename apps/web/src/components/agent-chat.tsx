@@ -29,15 +29,34 @@ function streamErrorMessage(error: unknown): string {
 }
 
 function MessageCitations({
+  evaluationCaseExists,
+  isOwner,
   messageId,
+  question,
   workspaceId,
 }: {
+  evaluationCaseExists: boolean;
+  isOwner: boolean;
   messageId: string;
+  question?: string;
   workspaceId: string;
 }) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [evaluationStatus, setEvaluationStatus] = useState<string>();
   const citations = useQuery(
     trpc.agent.messageCitations.queryOptions({ messageId, workspaceId }),
+  );
+  const createEvaluationCase = useMutation(
+    trpc.agent.createEvaluationCase.mutationOptions({
+      onError: (error) => setEvaluationStatus(messageError(error)),
+      onSuccess: async () => {
+        setEvaluationStatus("평가 기준으로 저장했습니다.");
+        await queryClient.invalidateQueries({
+          queryKey: trpc.agent.evaluationCases.queryKey({ workspaceId }),
+        });
+      },
+    }),
   );
   if (!citations.data?.length) return null;
   return (
@@ -50,11 +69,154 @@ function MessageCitations({
           <li key={`${citation.documentId}-${citation.ordinal}`}>
             {citation.filename}
             {citation.locator ? ` · ${citation.locator}` : ""}
+            {citation.sourceUri?.startsWith("http")
+              ? ` · ${citation.sourceUri}`
+              : ""}
             {citation.content ? ` — ${citation.content.slice(0, 120)}` : ""}
           </li>
         ))}
       </ul>
+      {isOwner && question ? (
+        <div className="mt-3 rounded-md border bg-background p-2">
+          <p className="text-muted-foreground">
+            인용 내용을 검토한 뒤 이 질문을 반복 평가 기준으로 저장할 수
+            있습니다.
+          </p>
+          <button
+            className="mt-2 font-medium hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={evaluationCaseExists || createEvaluationCase.isPending}
+            onClick={() =>
+              createEvaluationCase.mutate({
+                expectedChunkIds: citations.data.map(
+                  (citation) => citation.chunkId,
+                ),
+                question,
+                workspaceId,
+              })
+            }
+            type="button"
+          >
+            {evaluationCaseExists
+              ? "평가 기준에 저장됨"
+              : createEvaluationCase.isPending
+                ? "저장 중…"
+                : "이 인용들을 평가 기준으로 저장"}
+          </button>
+          {evaluationStatus ? (
+            <p className="text-muted-foreground mt-2" role="status">
+              {evaluationStatus}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </details>
+  );
+}
+
+type FeedbackKind = "helpful" | "incorrect" | "missing" | "needs-investigation";
+
+function MessageFeedback({
+  messageId,
+  workspaceId,
+}: {
+  messageId: string;
+  workspaceId: string;
+}) {
+  const trpc = useTRPC();
+  const [comment, setComment] = useState("");
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>();
+  const [status, setStatus] = useState<string>();
+  const submitFeedback = useMutation(
+    trpc.agent.submitFeedback.mutationOptions({
+      onError: (error) => setStatus(messageError(error)),
+      onSuccess: () => {
+        setComment("");
+        setFeedbackKind(undefined);
+        setStatus("피드백을 저장했습니다.");
+      },
+    }),
+  );
+
+  function submit(kind: FeedbackKind, feedbackComment?: string) {
+    setStatus(undefined);
+    submitFeedback.mutate({
+      ...(feedbackComment?.trim() ? { comment: feedbackComment.trim() } : {}),
+      kind,
+      messageId,
+      workspaceId,
+    });
+  }
+
+  return (
+    <div className="mt-3 border-t pt-3 text-xs">
+      <div className="flex flex-wrap gap-x-3 gap-y-2">
+        <button
+          className="text-muted-foreground hover:underline"
+          disabled={submitFeedback.isPending}
+          onClick={() => submit("helpful")}
+          type="button"
+        >
+          정확함
+        </button>
+        {(
+          [
+            ["incorrect", "부정확"],
+            ["missing", "근거 부족"],
+            ["needs-investigation", "조사 요청"],
+          ] as const
+        ).map(([kind, label]) => (
+          <button
+            className="text-muted-foreground hover:underline"
+            disabled={submitFeedback.isPending}
+            key={kind}
+            onClick={() => {
+              setFeedbackKind(kind);
+              setStatus(undefined);
+            }}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {feedbackKind ? (
+        <form
+          className="mt-3 space-y-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit(feedbackKind, comment);
+          }}
+        >
+          <Textarea
+            aria-label="피드백 설명"
+            onChange={(event) => setComment(event.target.value)}
+            placeholder="틀린 부분, 빠진 근거, 기대한 답을 적어 주세요. 사실로 바로 학습하지 않고 검토 신호로 저장됩니다."
+            value={comment}
+          />
+          <div className="flex gap-2">
+            <Button disabled={submitFeedback.isPending} size="sm" type="submit">
+              {submitFeedback.isPending ? "저장 중…" : "피드백 저장"}
+            </Button>
+            <Button
+              onClick={() => {
+                setComment("");
+                setFeedbackKind(undefined);
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              취소
+            </Button>
+          </div>
+        </form>
+      ) : null}
+      {status ? (
+        <p className="text-muted-foreground mt-2" role="status">
+          {status}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -112,6 +274,18 @@ export function AgentChat() {
     "owner";
   const auditLog = useQuery({
     ...trpc.agent.auditLog.queryOptions({ workspaceId: workspaceId ?? "" }),
+    enabled: Boolean(workspaceId && isOwner),
+  });
+  const evaluationCases = useQuery({
+    ...trpc.agent.evaluationCases.queryOptions({
+      workspaceId: workspaceId ?? "",
+    }),
+    enabled: Boolean(workspaceId && isOwner),
+  });
+  const evaluationRuns = useQuery({
+    ...trpc.agent.evaluationRuns.queryOptions({
+      workspaceId: workspaceId ?? "",
+    }),
     enabled: Boolean(workspaceId && isOwner),
   });
 
@@ -218,8 +392,16 @@ export function AgentChat() {
       onSuccess: () => setMemberUserId(""),
     }),
   );
-  const submitFeedback = useMutation(
-    trpc.agent.submitFeedback.mutationOptions(),
+  const runEvaluation = useMutation(
+    trpc.agent.runEvaluation.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.agent.evaluationRuns.queryKey({
+            workspaceId: workspaceId ?? "",
+          }),
+        });
+      },
+    }),
   );
   function submitWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -563,6 +745,64 @@ export function AgentChat() {
             </ul>
           ) : null}
         </details>
+        {isOwner ? (
+          <details className="mt-5 border-t pt-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              평가 루프
+            </summary>
+            <p className="text-muted-foreground mt-2 text-xs">
+              검토된 질문 {evaluationCases.data?.length ?? 0}개
+              {evaluationRuns.data?.[0]?.summary
+                ? ` · 최근 인용 재현율 ${Math.round(
+                    Number(
+                      (
+                        evaluationRuns.data[0].summary as {
+                          averageCitationRecall?: number;
+                        }
+                      ).averageCitationRecall ?? 0,
+                    ) * 100,
+                  )}%`
+                : ""}
+            </p>
+            <Button
+              className="mt-3 w-full"
+              disabled={
+                runEvaluation.isPending || !evaluationCases.data?.length
+              }
+              onClick={() =>
+                workspaceId && runEvaluation.mutate({ workspaceId })
+              }
+              size="sm"
+              variant="outline"
+            >
+              {runEvaluation.isPending ? "평가 중…" : "검색 평가 실행"}
+            </Button>
+            {runEvaluation.isSuccess ? (
+              <p className="text-muted-foreground mt-2 text-xs" role="status">
+                {runEvaluation.data.cases}개 질문 평가 완료 · 인용 재현율{" "}
+                {Math.round(runEvaluation.data.averageCitationRecall * 100)}%
+              </p>
+            ) : null}
+            {runEvaluation.isError ? (
+              <p className="text-destructive mt-2 text-xs" role="alert">
+                {messageError(runEvaluation.error)}
+              </p>
+            ) : null}
+            {evaluationCases.data?.length ? (
+              <ul className="mt-3 space-y-2 text-xs">
+                {evaluationCases.data.slice(0, 5).map((evaluationCase) => (
+                  <li className="rounded-md border p-2" key={evaluationCase.id}>
+                    {evaluationCase.question}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground mt-3 text-xs">
+                답변의 인용을 펼쳐 검토한 뒤 평가 기준으로 저장하세요.
+              </p>
+            )}
+          </details>
+        ) : null}
       </aside>
       <div className="flex min-h-[34rem] flex-col rounded-xl border">
         <div className="border-b px-5 py-4">
@@ -573,7 +813,7 @@ export function AgentChat() {
           </h2>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {messages.data?.map((message) => (
+          {messages.data?.map((message, messageIndex) => (
             <article
               className={
                 message.role === "user"
@@ -586,40 +826,32 @@ export function AgentChat() {
                 {message.content}
               </p>
               {message.role === "assistant" && (
-                <div className="mt-3 flex gap-2">
-                  <button
-                    className="text-muted-foreground text-xs hover:underline"
-                    disabled={submitFeedback.isPending}
-                    onClick={() =>
-                      submitFeedback.mutate({
-                        kind: "helpful",
-                        messageId: message.id,
-                        workspaceId,
-                      })
-                    }
-                    type="button"
-                  >
-                    도움됨
-                  </button>
-                  <button
-                    className="text-muted-foreground text-xs hover:underline"
-                    disabled={submitFeedback.isPending}
-                    onClick={() =>
-                      submitFeedback.mutate({
-                        kind: "needs-investigation",
-                        messageId: message.id,
-                        workspaceId,
-                      })
-                    }
-                    type="button"
-                  >
-                    조사 요청
-                  </button>
-                </div>
+                <MessageFeedback
+                  messageId={message.id}
+                  workspaceId={workspaceId}
+                />
               )}
               {message.role === "assistant" && workspaceId && (
                 <MessageCitations
+                  evaluationCaseExists={Boolean(
+                    evaluationCases.data?.some(
+                      (evaluationCase) =>
+                        evaluationCase.question ===
+                        messages.data
+                          ?.slice(0, messageIndex)
+                          .reverse()
+                          .find((candidate) => candidate.role === "user")
+                          ?.content,
+                    ),
+                  )}
+                  isOwner={isOwner}
                   messageId={message.id}
+                  question={
+                    messages.data
+                      ?.slice(0, messageIndex)
+                      .reverse()
+                      .find((candidate) => candidate.role === "user")?.content
+                  }
                   workspaceId={workspaceId}
                 />
               )}

@@ -68,7 +68,7 @@ function modelProviders() {
         baseUrl: serverEnv.OLLAMA_BASE_URL,
         model: serverEnv.OLLAMA_MODEL,
       }),
-      modelId: serverEnv.OLLAMA_MODEL ?? "qwen2.5:3b",
+      modelId: serverEnv.OLLAMA_MODEL ?? "knowledge-agent-gemma3:12b",
     };
   return { embedding: undefined, model: undefined, modelId: undefined };
 }

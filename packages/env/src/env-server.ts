@@ -143,7 +143,7 @@ export const serverEnv = createEnv({
     OPENAI_EMBEDDING_MODEL: z.string().min(1).optional(),
     /** Local-only Ollama endpoint. Omit to keep model completion disabled. */
     OLLAMA_BASE_URL: z.url().optional(),
-    /** Pulled Ollama model tag; `qwen3:4b` is the low-memory default. */
+    /** Pulled Ollama model tag; `knowledge-agent-gemma3:12b` is the local quality default. */
     OLLAMA_MODEL: z.string().min(1).optional(),
     /** Pulled local embedding model used by document retrieval. */
     OLLAMA_EMBEDDING_MODEL: z.string().min(1).optional(),

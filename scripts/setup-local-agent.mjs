@@ -14,5 +14,5 @@ try {
 }
 
 console.log(
-  "Next: ensure Ollama is running with qwen2.5:3b and nomic-embed-text, then run pnpm dev:local",
+  "Next: pull gemma3:12b and nomic-embed-text, run pnpm agent:model:setup, then run pnpm dev:local",
 );

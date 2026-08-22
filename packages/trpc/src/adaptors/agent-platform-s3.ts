@@ -788,12 +788,14 @@ export function createS3AgentPlatformRepository(
           if (!chunk || !document) return [];
           return [
             {
+              chunkId: chunk.id,
               content: chunk.content,
               documentId: document.id,
               filename: document.filename,
               locator: chunk.locator ?? null,
               ordinal: citation.ordinal,
               knowledgeReleaseId: citation.knowledgeReleaseId,
+              sourceUri: document.sourceUri,
             },
           ];
         });

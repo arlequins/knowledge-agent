@@ -415,11 +415,13 @@ export function createAgentPlatformRepository(database: Database) {
       await assertMember(actor);
       return database
         .select({
+          chunkId: DocumentChunk.id,
           content: DocumentChunk.content,
           documentId: Document.id,
           filename: Document.filename,
           locator: DocumentChunk.locator,
           ordinal: MessageCitation.ordinal,
+          sourceUri: Document.sourceUri,
         })
         .from(MessageCitation)
         .innerJoin(Message, eq(MessageCitation.messageId, Message.id))

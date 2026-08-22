@@ -59,6 +59,34 @@ record the expected evidence chunks, and scheduled evaluations compare citation
 recall, answer quality, latency, and cost before a prompt or routing change is
 promoted. The initial profile does not perform real-time fine-tuning.
 
+Owners can expand an answer's citations, review the evidence, and save that
+question plus the expected chunks as an evaluation case. The **Evaluation
+loop** panel replays approved cases against retrieval and records citation
+recall. For a reproducible local answer-quality baseline, keep the local server
+running and execute:
+
+```bash
+pnpm agent:evaluate
+```
+
+The public cases in `config/local-agent-evaluation.json` verify representative
+code, architecture, legacy-language, live-capability, and official-stack
+questions. Full answers and timings are written to ignored
+`.local/evaluations/latest.json`; credentials and private questions are never
+committed. A model or retrieval change passes only when it meets the configured
+pass-rate gate.
+
+The current local default is `knowledge-agent-gemma3:12b`, an Ollama profile
+built from `gemma3:12b` with an 8K context window and bounded output. It avoids
+thinking-mode compatibility differences across Ollama versions while remaining
+practical for a quality-first single-user local demo. The adapter also removes
+tagged reasoning if a future model emits it. Treat the six public cases as a
+local quality gate, not a general model ranking, and re-run them on the target
+machine before changing the default.
+
+The reference local run on 2026-08-22 passed all 6 public cases. Individual
+answers completed in roughly 19-64 seconds on the test machine.
+
 ## Provider policy
 
 The local OpenAI adapter uses the Responses API with provider-side response

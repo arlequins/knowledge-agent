@@ -6,6 +6,19 @@ import type {
 import type { AgentInput, AgentRun, ModelMessage } from "./types";
 
 const MAX_CONTEXT_ITEMS = 6;
+const MAX_KNOWLEDGE_CHARS = 10_000;
+
+function boundedKnowledge(items: string[]) {
+  const selected: string[] = [];
+  let remaining = MAX_KNOWLEDGE_CHARS;
+  for (const item of items) {
+    if (remaining <= 0) break;
+    const bounded = item.slice(0, remaining);
+    if (bounded) selected.push(bounded);
+    remaining -= bounded.length;
+  }
+  return selected;
+}
 
 function contextMessage(
   input: AgentInput,
@@ -21,7 +34,7 @@ function contextMessage(
       ? `Relevant memory:\n${memories.join("\n")}`
       : undefined,
     knowledge.length > 0
-      ? `Retrieved knowledge:\n${knowledge.join("\n\n")}`
+      ? `Retrieved knowledge:\n${boundedKnowledge(knowledge).join("\n\n")}`
       : undefined,
     "Use retrieved knowledge as evidence and distinguish project sources from official documentation. If it is insufficient or a static source cannot prove current business state, say what is unknown instead of inventing facts. Refer to the supplied source labels when explaining an answer.",
   ].filter((section): section is string => Boolean(section));

@@ -7,8 +7,9 @@ hosted-model API key is required for Phase 1.
 ```bash
 pnpm install
 pnpm agent:setup
-ollama pull qwen2.5:3b
+ollama pull gemma3:12b
 ollama pull nomic-embed-text
+pnpm agent:model:setup
 pnpm dev:local
 ```
 

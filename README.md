@@ -46,15 +46,17 @@ public template.
 ## Local pilot
 
 Requirements are Node.js and pnpm versions matching `package.json`, Docker, and
-Ollama. Phase 1 uses local `qwen2.5:3b` chat and `nomic-embed-text` embedding
+Ollama. Phase 1 uses the local `knowledge-agent-gemma3:12b` profile and
+`nomic-embed-text` embedding
 models by default, so no hosted-model API key is required. Start from the
 checked-in examples; do not commit the local environment file.
 
 ```bash
 pnpm install
 pnpm agent:setup
-ollama pull qwen2.5:3b
+ollama pull gemma3:12b
 ollama pull nomic-embed-text
+pnpm agent:model:setup
 pnpm db:start
 pnpm db:setup
 pnpm knowledge:bootstrap

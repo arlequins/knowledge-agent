@@ -33,16 +33,66 @@ describe("createOllamaModelProvider", () => {
     };
     expect(body).toMatchObject({
       model: "qwen3:4b",
+      options: { num_predict: 768, seed: 42, temperature: 0.1 },
       stream: true,
       think: false,
     });
-    expect(body.messages[0]).toEqual({ role: "system", content: "/no_think" });
+    expect(body.messages).toEqual([{ role: "user", content: "Hi" }]);
   });
 
   it("rejects remote endpoints to keep local conversations local", () => {
     expect(() =>
       createOllamaModelProvider({ baseUrl: "https://example.com" }),
     ).toThrow("loopback");
+  });
+
+  it("includes Ollama error details in a failed request", async () => {
+    const provider = createOllamaModelProvider({
+      fetch: async () =>
+        new Response('{"error":"template rejected the prompt"}', {
+          status: 400,
+        }),
+    });
+
+    await expect(async () => {
+      for await (const _chunk of provider.streamText({
+        messages: [{ role: "user", content: "Question" }],
+      })) {
+        // No chunks are expected from an error response.
+      }
+    }).rejects.toThrow('400): {"error":"template rejected the prompt"}');
+  });
+
+  it("removes tagged Qwen reasoning from user-facing output", async () => {
+    const provider = createOllamaModelProvider({
+      fetch: async () =>
+        new Response(
+          [
+            '{"message":{"content":"<thi"}}',
+            '{"message":{"content":"nk>private reasoning"}}',
+            '{"message":{"content":"</think>Final answer"},"done":true}',
+          ].join("\n"),
+        ),
+    });
+    const chunks: string[] = [];
+    for await (const chunk of provider.streamText({
+      messages: [{ role: "user", content: "Question" }],
+    }))
+      chunks.push(chunk);
+    expect(chunks.join("")).toBe("Final answer");
+  });
+
+  it("keeps an ordinary answer when the model emits no reasoning tag", async () => {
+    const provider = createOllamaModelProvider({
+      fetch: async () =>
+        new Response('{"message":{"content":"Grounded answer"},"done":true}\n'),
+    });
+    const chunks: string[] = [];
+    for await (const chunk of provider.streamText({
+      messages: [{ role: "user", content: "Question" }],
+    }))
+      chunks.push(chunk);
+    expect(chunks.join("")).toBe("Grounded answer");
   });
 
   it("embeds batches through the local Ollama endpoint", async () => {

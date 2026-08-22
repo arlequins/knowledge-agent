@@ -41,6 +41,7 @@ const ALLOWED_EXTENSIONS = new Set([
   ".yml",
 ]);
 const IGNORED_DIRECTORIES = new Set([
+  ".cache",
   ".git",
   ".local",
   ".next",

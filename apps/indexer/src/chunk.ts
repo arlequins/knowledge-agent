@@ -53,11 +53,13 @@ export function chunkSource(content: string, path: string): SourceChunk[] {
     const end = Math.min(start + SOURCE_LINES, lines.length);
     const value = lines.slice(start, end).join("\n").trim();
     if (value)
-      result.push({
-        content: value,
-        locator: `${path}#L${start + 1}-L${end}`,
-        ordinal: result.length,
-      });
+      result.push(
+        ...splitLongSection(
+          value,
+          `${path}#L${start + 1}-L${end}`,
+          result.length,
+        ),
+      );
     if (end === lines.length) break;
   }
   return result;

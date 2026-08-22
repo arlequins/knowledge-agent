@@ -12,6 +12,14 @@ import {
 import { type AnyColumn, and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 
 const MAX_RESULTS = 6;
+const MAX_RESULTS_PER_DOCUMENT = 2;
+const GENERATED_SOURCE_SEGMENTS = [
+  "/.cache/",
+  "/.next/",
+  "/.turbo/",
+  "/dist/",
+  "/node_modules/",
+] as const;
 const cosine = (left: number[], right: number[]) => {
   if (left.length === 0 || left.length !== right.length) return 0;
   let dot = 0;
@@ -28,7 +36,7 @@ const cosine = (left: number[], right: number[]) => {
 };
 const pattern = (query: string) => `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
-function queryTerms(query: string, limit?: number) {
+export function queryTerms(query: string, limit?: number) {
   const terms = query.match(/[\p{L}\p{N}]{2,}/gu) ?? [];
   const normalized = terms.map((term) => term.toLocaleLowerCase());
   const aliases = [
@@ -37,6 +45,25 @@ function queryTerms(query: string, limit?: number) {
     ["엔드포인트", "api"],
     ["임베딩", "embedding"],
     ["모델", "model"],
+    ["개선", "improvement"],
+    ["루프", "loop"],
+    ["실시간", "real-time"],
+    ["실시간", "real"],
+    ["파인튜닝", "fine-tuning"],
+    ["파인튜닝", "fine"],
+    ["파인튜닝", "tuning"],
+    ["주기", "daily"],
+    ["검증", "evaluation"],
+    ["공지", "notices"],
+    ["최근", "recent"],
+    ["판매", "sold"],
+    ["차량", "vehicles"],
+    ["조회", "list"],
+    ["안전", "authorization"],
+    ["공식", "official"],
+    ["소스", "sources"],
+    ["선택", "select"],
+    ["마이그레이션", "migrations"],
   ] as const;
   for (const term of normalized)
     for (const [prefix, alias] of aliases)
@@ -45,8 +72,41 @@ function queryTerms(query: string, limit?: number) {
   return limit ? unique.slice(0, limit) : unique;
 }
 
+export function selectDiverseResults<T extends { documentId: string }>(
+  rows: T[],
+  limit = MAX_RESULTS,
+  maximumPerDocument = MAX_RESULTS_PER_DOCUMENT,
+) {
+  const selected: T[] = [];
+  const documentCounts = new Map<string, number>();
+  for (const row of rows) {
+    if ((documentCounts.get(row.documentId) ?? 0) >= maximumPerDocument)
+      continue;
+    selected.push(row);
+    documentCounts.set(
+      row.documentId,
+      (documentCounts.get(row.documentId) ?? 0) + 1,
+    );
+    if (selected.length === limit) break;
+  }
+  return selected;
+}
+
+export function isUsableKnowledgeSource(label: string) {
+  const normalized = `/${label.replaceAll("\\", "/")}`;
+  return !GENERATED_SOURCE_SEGMENTS.some((segment) =>
+    normalized.includes(segment),
+  );
+}
+
+function citationLabel(label: string, sourceUri: string) {
+  return label.startsWith("[official:") && /^https?:\/\//.test(sourceUri)
+    ? `${label} · ${sourceUri}`
+    : label;
+}
+
 function keywordScore(query: string, content: string) {
-  const expected = queryTerms(query, 16);
+  const expected = queryTerms(query, 32);
   if (expected.length === 0) return 0;
   const actual = new Set(queryTerms(content));
   let matches = 0;
@@ -55,7 +115,7 @@ function keywordScore(query: string, content: string) {
 }
 
 function textMatch(column: AnyColumn, query: string) {
-  const terms = queryTerms(query, 16);
+  const terms = queryTerms(query, 32);
   return terms.length > 0
     ? or(...terms.map((term) => ilike(column, pattern(term))))
     : ilike(column, pattern(query));
@@ -106,6 +166,7 @@ export function createDatabaseKnowledgeSearch(
                 embedding: DocumentChunk.embedding,
                 label: Document.filename,
                 locator: DocumentChunk.locator,
+                sourceUri: Document.sourceUri,
               })
               .from(DocumentChunk)
               .innerJoin(Document, eq(DocumentChunk.documentId, Document.id))
@@ -117,6 +178,7 @@ export function createDatabaseKnowledgeSearch(
                 ),
               );
             const ranked = vectorRows
+              .filter((row) => isUsableKnowledgeSource(row.label))
               .filter((row): row is typeof row & { embedding: number[] } =>
                 Array.isArray(row.embedding),
               )
@@ -125,17 +187,17 @@ export function createDatabaseKnowledgeSearch(
                 score:
                   cosine(queryEmbedding, row.embedding) +
                   keywordScore(query, row.label) * 1.25 +
-                  keywordScore(query, row.content) * 0.35,
+                  keywordScore(query, row.content) * 0.65,
               }))
               .filter((row) => row.score > 0.2)
-              .sort((left, right) => right.score - left.score)
-              .slice(0, MAX_RESULTS);
-            if (ranked.length > 0)
-              return ranked.map((row) => ({
+              .sort((left, right) => right.score - left.score);
+            const selected = selectDiverseResults(ranked);
+            if (selected.length > 0)
+              return selected.map((row) => ({
                 citation: {
                   chunkId: row.chunkId,
                   documentId: row.documentId,
-                  label: row.label,
+                  label: citationLabel(row.label, row.sourceUri),
                   ...(row.locator ? { locator: row.locator } : {}),
                 },
                 content: row.content,
@@ -153,6 +215,7 @@ export function createDatabaseKnowledgeSearch(
           documentId: Document.id,
           label: Document.filename,
           locator: DocumentChunk.locator,
+          sourceUri: Document.sourceUri,
         })
         .from(DocumentChunk)
         .innerJoin(Document, eq(DocumentChunk.documentId, Document.id))
@@ -164,12 +227,14 @@ export function createDatabaseKnowledgeSearch(
             textMatch(DocumentChunk.content, query),
           ),
         )
-        .limit(MAX_RESULTS);
-      return rows.map((row) => ({
+        .limit(MAX_RESULTS * MAX_RESULTS_PER_DOCUMENT * 10);
+      return selectDiverseResults(
+        rows.filter((row) => isUsableKnowledgeSource(row.label)),
+      ).map((row) => ({
         citation: {
           chunkId: row.chunkId,
           documentId: row.documentId,
-          label: row.label,
+          label: citationLabel(row.label, row.sourceUri),
           ...(row.locator ? { locator: row.locator } : {}),
         },
         content: row.content,
