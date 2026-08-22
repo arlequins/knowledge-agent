@@ -8,11 +8,15 @@ import type {
 import type { AuthSession, TRPCAuth } from "@arlequins/auth";
 import type { Logger, Telemetry } from "@arlequins/logger";
 import type { createAgentPlatformRepository } from "./adaptors/agent-platform";
+import type { ModelCredentialRepository } from "./adaptors/model-credential";
+import type { ModelCatalog } from "./composition/model-providers";
 
 export type TRPCServices = {
   agent: ReturnType<typeof createAgentPlatformRepository>;
   model?: ModelProviderPort;
   modelId?: string;
+  modelCatalog: ModelCatalog;
+  modelCredentials: ModelCredentialRepository;
   embedding?: EmbeddingProviderPort;
   documentExtraction: DocumentExtractionPort;
   knowledgeSearch: KnowledgeSearchPort;

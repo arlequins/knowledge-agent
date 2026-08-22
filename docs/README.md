@@ -27,6 +27,8 @@ local application; the pages below explain design decisions and ongoing work.
   quotas, backups, and retrieval-incident recovery.
 - [Local agent demo](local-agent-demo.md): run PostgreSQL, OpenAI, repository
   indexing, and official technology-document retrieval.
+- [Local reviewed fine-tuning](local-finetuning.md): evidence-gated LoRA
+  training, promotion, and the local daily schedule.
 - [SST local testing](sst-local-testing.md): what can be validated without SST
   sign-in or AWS credentials.
 - [Test operations](testing-operations.md): test layers, external test

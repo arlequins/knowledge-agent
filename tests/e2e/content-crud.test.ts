@@ -55,4 +55,26 @@ test("creates an agent workspace and starts a conversation without horizontal ov
   await page.getByRole("button", { name: "중지" }).click();
   await expect(question).toHaveValue("Enter로 전송되는 질문");
   await expect(page.getByRole("button", { name: "보내기" })).toBeVisible();
+
+  const modelButton = page.getByRole("button", { name: /모델 ·/ });
+  await modelButton.click();
+  await page
+    .getByRole("combobox", { name: "모델 제공자" })
+    .selectOption("gemini");
+  await page
+    .getByRole("textbox", { name: "개인 API 키" })
+    .fill("e2e-gemini-key");
+  await page.getByRole("button", { name: "이 모델 사용" }).click();
+  await expect(modelButton).toContainText("Gemini");
+
+  await page.reload();
+  await page.getByRole("button", { name: /모델 ·/ }).click();
+  await page
+    .getByRole("combobox", { name: "모델 제공자" })
+    .selectOption("gemini");
+  await expect(page.getByText("연결됨 · Gemini")).toBeVisible();
+  await page.getByRole("button", { name: "저장된 키 삭제" }).click();
+  await expect(page.getByRole("button", { name: /모델 ·/ })).toContainText(
+    "로컬 Ollama",
+  );
 });

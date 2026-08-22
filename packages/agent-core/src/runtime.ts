@@ -51,11 +51,11 @@ export function createAgentRuntime(dependencies: {
     async *run(input) {
       const [matches, memories] = await Promise.all([
         dependencies.knowledgeSearch.search({
-          query: input.question,
+          query: input.retrievalQuery ?? input.question,
           workspaceId: input.workspaceId,
         }),
         dependencies.memorySearch.search({
-          query: input.question,
+          query: input.retrievalQuery ?? input.question,
           workspaceId: input.workspaceId,
         }),
       ]);

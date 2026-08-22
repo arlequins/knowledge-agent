@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TRPCServices } from "../context";
 import {
   type AgentCompletionEvent,
+  retrievalQueryForConversation,
   streamAgentCompletion,
 } from "./agent-completion";
 
@@ -90,6 +91,30 @@ async function collect(
 }
 
 describe("streamAgentCompletion", () => {
+  it("adds the previous user turn to an underspecified follow-up retrieval query", () => {
+    expect(
+      retrievalQueryForConversation("몇 시에 갱신되니?", [
+        { content: "매일 파인튜닝하나요?", role: "user" },
+        { content: "이전 답변", role: "assistant" },
+      ]),
+    ).toBe(
+      "매일 파인튜닝하나요?\n몇 시에 갱신되니?\nimplementation configuration config source code batch schedule cron enabled timezone",
+    );
+    expect(
+      retrievalQueryForConversation("React 훅의 규칙을 설명해줘", [
+        { content: "이전 주제", role: "user" },
+      ]),
+    ).toBe("React 훅의 규칙을 설명해줘");
+  });
+
+  it("expands implementation schedule questions toward checked-in configuration", () => {
+    expect(
+      retrievalQueryForConversation(
+        "현재 구현된 갱신 일정과 활성화 여부를 알려줘",
+        [],
+      ),
+    ).toContain("batch schedule cron enabled timezone");
+  });
   it("streams the answer and persists one cited assistant message", async () => {
     const { addMessage, addMessageCitations, services, streamText } =
       createServices();

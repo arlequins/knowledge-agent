@@ -72,6 +72,20 @@ export const completeAgentInputSchema = workspaceScopeInputSchema.extend({
   conversationId: z.uuid(),
   question: z.string().trim().min(1).max(100_000),
 });
+export const modelCredentialProviderSchema = z.enum(["gemini", "openai"]);
+export const saveModelCredentialInputSchema = z.object({
+  apiKey: z.string().trim().min(8).max(512).optional(),
+  modelId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(96)
+    .regex(/^[a-zA-Z0-9._:-]+$/),
+  provider: modelCredentialProviderSchema,
+});
+export const deleteModelCredentialInputSchema = z.object({
+  provider: modelCredentialProviderSchema,
+});
 export const conversationScopeInputSchema = workspaceScopeInputSchema.extend({
   conversationId: z.uuid(),
 });

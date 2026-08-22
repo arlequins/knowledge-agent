@@ -18,6 +18,36 @@ const STARTER_PROMPTS = [
   "근거가 충분한 내용과 확인이 필요한 내용을 구분해줘",
 ] as const;
 
+const PERSONAL_MODEL_DEFAULTS = {
+  gemini: "gemini-3.5-flash-lite",
+  openai: "gpt-5-mini",
+} as const;
+
+const PERSONAL_MODEL_OPTIONS = {
+  gemini: [
+    ["gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite"],
+    ["gemini-3.6-flash", "Gemini 3.6 Flash"],
+    ["gemini-3.7-flash", "Gemini 3.7 Flash"],
+  ],
+  openai: [
+    ["gpt-5-mini", "GPT-5 mini"],
+    ["gpt-5.4-mini", "GPT-5.4 mini"],
+    ["gpt-5.6-terra", "GPT-5.6 Terra"],
+  ],
+} as const;
+
+type ModelChoice = {
+  apiKey: string;
+  modelId: string;
+  provider: "default" | "gemini" | "openai";
+};
+
+const DEFAULT_MODEL_CHOICE: ModelChoice = {
+  apiKey: "",
+  modelId: "",
+  provider: "default",
+};
+
 function conversationTitle(question: string): string {
   const normalized = question
     .replace(/[`*_~>#[\](){}|]/g, " ")
@@ -35,6 +65,9 @@ function messageError(error: unknown): string {
 
 function streamErrorMessage(error: unknown): string {
   const message = messageError(error);
+  if (message === "Selected model request failed") {
+    return "선택한 모델에서 응답을 받지 못했습니다. 모델 ID와 개인 API 키 또는 로컬 모델 실행 상태를 확인해 주세요.";
+  }
   if (
     message === "Local model request failed" ||
     message === "Local model completion is not configured"
@@ -295,11 +328,19 @@ export function AgentChat() {
   const [streamPhase, setStreamPhase] = useState<"answering" | "retrieving">(
     "retrieving",
   );
+  const [modelChoice, setModelChoice] =
+    useState<ModelChoice>(DEFAULT_MODEL_CHOICE);
+  const [draftModelChoice, setDraftModelChoice] =
+    useState<ModelChoice>(DEFAULT_MODEL_CHOICE);
+  const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
+  const [modelSettingsError, setModelSettingsError] = useState<string>();
   const abortControllerRef = useRef<AbortController>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
   const workspaces = useQuery(trpc.agent.workspaces.queryOptions());
+  const modelCatalog = useQuery(trpc.agent.models.queryOptions());
+  const modelCredentials = useQuery(trpc.agent.modelCredentials.queryOptions());
   const conversations = useQuery({
     ...trpc.agent.conversations.queryOptions({
       workspaceId: workspaceId ?? "",
@@ -508,6 +549,24 @@ export function AgentChat() {
       },
     }),
   );
+  const saveModelCredential = useMutation(
+    trpc.agent.saveModelCredential.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.agent.modelCredentials.queryKey(),
+        });
+      },
+    }),
+  );
+  const deleteModelCredential = useMutation(
+    trpc.agent.deleteModelCredential.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.agent.modelCredentials.queryKey(),
+        });
+      },
+    }),
+  );
   function submitWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = workspaceName.trim();
@@ -578,6 +637,76 @@ export function AgentChat() {
     abortControllerRef.current?.abort();
   }
 
+  async function applyModelChoice() {
+    const next = {
+      ...draftModelChoice,
+      apiKey: draftModelChoice.apiKey.trim(),
+      modelId: draftModelChoice.modelId.trim(),
+    };
+    if (next.provider !== "default" && !next.modelId) {
+      setModelSettingsError("사용할 모델 ID를 입력해 주세요.");
+      return;
+    }
+    if (next.provider !== "default") {
+      const saved = modelCredentials.data?.find(
+        (credential) => credential.provider === next.provider,
+      );
+      if (!next.apiKey && !saved) {
+        setModelSettingsError("처음 연결할 때는 개인 API 키가 필요합니다.");
+        return;
+      }
+      try {
+        await saveModelCredential.mutateAsync({
+          ...(next.apiKey ? { apiKey: next.apiKey } : {}),
+          modelId: next.modelId,
+          provider: next.provider,
+        });
+      } catch (error) {
+        setModelSettingsError(messageError(error));
+        return;
+      }
+    }
+    setModelChoice({ ...next, apiKey: "" });
+    setDraftModelChoice({ ...next, apiKey: "" });
+    setModelSettingsError(undefined);
+    setIsModelSettingsOpen(false);
+  }
+
+  function resetModelChoice() {
+    setModelChoice(DEFAULT_MODEL_CHOICE);
+    setDraftModelChoice(DEFAULT_MODEL_CHOICE);
+    setModelSettingsError(undefined);
+    setIsModelSettingsOpen(false);
+  }
+
+  async function removeSavedCredential(provider: "gemini" | "openai") {
+    try {
+      await deleteModelCredential.mutateAsync({ provider });
+      if (modelChoice.provider === provider) resetModelChoice();
+      else
+        setDraftModelChoice((current) => ({
+          ...current,
+          apiKey: "",
+        }));
+    } catch (error) {
+      setModelSettingsError(messageError(error));
+    }
+  }
+
+  function currentModelLabel() {
+    if (modelChoice.provider === "gemini")
+      return `Gemini · ${modelChoice.modelId}`;
+    if (modelChoice.provider === "openai")
+      return `OpenAI · ${modelChoice.modelId}`;
+    return modelCatalog.data?.defaultModel?.label ?? "기본 모델";
+  }
+
+  function savedCredential(provider: "gemini" | "openai") {
+    return modelCredentials.data?.find(
+      (credential) => credential.provider === provider,
+    );
+  }
+
   function questionBefore(messageIndex: number) {
     return messages.data
       ?.slice(0, messageIndex)
@@ -615,6 +744,12 @@ export function AgentChat() {
               ? { Authorization: `Bearer ${user.access_token}` }
               : {}),
             "Content-Type": "application/json",
+            ...(modelChoice.provider !== "default"
+              ? {
+                  "X-Agent-Model": modelChoice.modelId,
+                  "X-Agent-Model-Provider": modelChoice.provider,
+                }
+              : {}),
           },
           body: JSON.stringify({
             conversationId: activeConversationId,
@@ -1258,9 +1393,24 @@ export function AgentChat() {
               value={question}
             />
             <div className="mt-2 flex items-center justify-between gap-3">
-              <p className="text-muted-foreground text-xs">
-                Enter 전송 · Ctrl+Enter 줄바꿈
-              </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <button
+                  aria-expanded={isModelSettingsOpen}
+                  className="hover:bg-accent max-w-[min(60vw,28rem)] truncate rounded-full px-2 py-1 text-left text-xs font-medium"
+                  disabled={isStreaming}
+                  onClick={() => {
+                    setDraftModelChoice(modelChoice);
+                    setModelSettingsError(undefined);
+                    setIsModelSettingsOpen((open) => !open);
+                  }}
+                  type="button"
+                >
+                  모델 · {currentModelLabel()}
+                </button>
+                <p className="text-muted-foreground hidden text-xs sm:block">
+                  Enter 전송 · Ctrl+Enter 줄바꿈
+                </p>
+              </div>
               {isStreaming ? (
                 <Button
                   onClick={stopGeneration}
@@ -1279,6 +1429,176 @@ export function AgentChat() {
               )}
             </div>
           </div>
+          {isModelSettingsOpen ? (
+            <div className="mt-3 rounded-xl border bg-muted/30 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold">모델 변경</p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    기본 모델을 사용하거나 개인 Gemini·OpenAI 키를 연결할 수
+                    있습니다.
+                  </p>
+                </div>
+                <button
+                  className="text-muted-foreground text-xs hover:underline"
+                  onClick={() => setIsModelSettingsOpen(false)}
+                  type="button"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-xs font-medium">
+                  제공자
+                  <select
+                    aria-label="모델 제공자"
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    onChange={(event) => {
+                      const provider = event.target
+                        .value as ModelChoice["provider"];
+                      setDraftModelChoice({
+                        apiKey: "",
+                        modelId:
+                          provider === "default"
+                            ? ""
+                            : (savedCredential(provider)?.modelId ??
+                              PERSONAL_MODEL_DEFAULTS[provider]),
+                        provider,
+                      });
+                      setModelSettingsError(undefined);
+                    }}
+                    value={draftModelChoice.provider}
+                  >
+                    <option value="default">
+                      기본 ·{" "}
+                      {modelCatalog.data?.defaultModel?.label ?? "서버 설정"}
+                    </option>
+                    <option value="gemini">Google Gemini · 개인 키</option>
+                    <option value="openai">OpenAI · 개인 키</option>
+                  </select>
+                </label>
+                {draftModelChoice.provider !== "default" ? (
+                  <label
+                    className="space-y-1 text-xs font-medium"
+                    htmlFor="personal-model-id"
+                  >
+                    모델 ID
+                    <Input
+                      aria-label="모델 ID"
+                      id="personal-model-id"
+                      list={`${draftModelChoice.provider}-model-options`}
+                      onChange={(event) =>
+                        setDraftModelChoice((current) => ({
+                          ...current,
+                          modelId: event.target.value,
+                        }))
+                      }
+                      placeholder={
+                        PERSONAL_MODEL_DEFAULTS[draftModelChoice.provider]
+                      }
+                      value={draftModelChoice.modelId}
+                    />
+                    <datalist id={`${draftModelChoice.provider}-model-options`}>
+                      {PERSONAL_MODEL_OPTIONS[draftModelChoice.provider].map(
+                        ([id, label]) => (
+                          <option key={id} value={id}>
+                            {label}
+                          </option>
+                        ),
+                      )}
+                    </datalist>
+                  </label>
+                ) : (
+                  <div className="rounded-lg border bg-background px-3 py-2 text-xs">
+                    <p className="font-medium">현재 서버 모델</p>
+                    <p className="text-muted-foreground mt-1 break-all">
+                      {modelCatalog.data?.defaultModel?.label ??
+                        "설정된 모델 정보를 불러오는 중입니다."}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {draftModelChoice.provider !== "default" ? (
+                <label
+                  className="mt-3 block space-y-1 text-xs font-medium"
+                  htmlFor="personal-model-api-key"
+                >
+                  개인 API 키
+                  <Input
+                    aria-label="개인 API 키"
+                    id="personal-model-api-key"
+                    autoComplete="off"
+                    onChange={(event) =>
+                      setDraftModelChoice((current) => ({
+                        ...current,
+                        apiKey: event.target.value,
+                      }))
+                    }
+                    placeholder={
+                      savedCredential(draftModelChoice.provider)
+                        ? "연결된 키를 변경할 때만 입력"
+                        : "API 키 입력"
+                    }
+                    spellCheck={false}
+                    type="password"
+                    value={draftModelChoice.apiKey}
+                  />
+                  <span className="text-muted-foreground font-normal">
+                    키를 원문 그대로 저장하지 않고 서버에서 암호화해 로그인
+                    사용자에게만 연결합니다. 저장 후에는 다시 입력할 필요가
+                    없습니다.
+                  </span>
+                  {savedCredential(draftModelChoice.provider) ? (
+                    <span className="block text-emerald-600 font-normal dark:text-emerald-400">
+                      연결됨 ·{" "}
+                      {draftModelChoice.provider === "gemini"
+                        ? "Gemini"
+                        : "OpenAI"}
+                    </span>
+                  ) : null}
+                </label>
+              ) : null}
+              {modelSettingsError ? (
+                <p className="text-destructive mt-3 text-xs" role="alert">
+                  {modelSettingsError}
+                </p>
+              ) : null}
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                {draftModelChoice.provider !== "default" &&
+                savedCredential(draftModelChoice.provider) ? (
+                  <Button
+                    disabled={deleteModelCredential.isPending}
+                    onClick={() =>
+                      void removeSavedCredential(
+                        draftModelChoice.provider as "gemini" | "openai",
+                      )
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    저장된 키 삭제
+                  </Button>
+                ) : null}
+                <Button
+                  onClick={resetModelChoice}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  기본 모델 사용
+                </Button>
+                <Button
+                  disabled={saveModelCredential.isPending}
+                  onClick={() => void applyModelChoice()}
+                  size="sm"
+                  type="button"
+                >
+                  {saveModelCredential.isPending ? "저장 중…" : "이 모델 사용"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <p className="text-muted-foreground mt-2 text-center text-[11px]">
             답변은 연결된 근거를 우선하며 중요한 내용은 인용을 직접 확인하세요.
           </p>

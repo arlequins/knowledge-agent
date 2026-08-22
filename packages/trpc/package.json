@@ -30,6 +30,8 @@
   "dependencies": {
     "@arlequins/agent-bedrock": "workspace:*",
     "@arlequins/agent-core": "workspace:*",
+    "@arlequins/agent-gemini": "workspace:*",
+    "@arlequins/agent-mlx": "workspace:*",
     "@arlequins/agent-ollama": "workspace:*",
     "@arlequins/agent-openai": "workspace:*",
     "@arlequins/auth": "workspace:*",

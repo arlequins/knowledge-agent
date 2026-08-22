@@ -40,6 +40,7 @@ export type AgentInput = {
   history: ModelMessage[];
   profile: AgentProfile;
   question: string;
+  retrievalQuery?: string;
   workspaceId: string;
 };
 

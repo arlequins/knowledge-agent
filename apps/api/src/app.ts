@@ -8,7 +8,13 @@ import {
   noopErrorReporter,
 } from "@arlequins/logger";
 import type { RateLimitPort } from "@arlequins/service";
-import { AppRouter, createTRPCContext, TRPC_HTTP_PATH } from "@arlequins/trpc";
+import {
+  AppRouter,
+  createTRPCContext,
+  ModelSelectionError,
+  modelSelectionHeaders,
+  TRPC_HTTP_PATH,
+} from "@arlequins/trpc";
 import { streamAgentCompletion } from "@arlequins/trpc/agent-completion";
 import { completeAgentInputSchema } from "@arlequins/validators";
 import { OpenAPIHono } from "@hono/zod-openapi";
@@ -157,6 +163,8 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         "Authorization",
         "Content-Type",
         "Trpc-Accept",
+        modelSelectionHeaders.model,
+        modelSelectionHeaders.provider,
         "X-Request-Id",
       ],
       allowMethods: ["GET", "POST", "OPTIONS"],
@@ -236,11 +244,26 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         400,
       );
     }
-    const trpcContext = await createTRPCContext({
-      headers: context.req.raw.headers,
-      logger: context.get("logger"),
-      telemetry,
-    });
+    let trpcContext: Awaited<ReturnType<typeof createTRPCContext>>;
+    try {
+      trpcContext = await createTRPCContext({
+        headers: context.req.raw.headers,
+        logger: context.get("logger"),
+        telemetry,
+      });
+    } catch (error) {
+      if (error instanceof ModelSelectionError) {
+        context.get("logger").warn("agent.model-selection.invalid");
+        return context.json(
+          {
+            error: "Invalid Model Selection",
+            requestId: context.get("requestId"),
+          },
+          400,
+        );
+      }
+      throw error;
+    }
     const session = trpcContext.session;
     if (!session?.user) {
       return context.json(
@@ -292,7 +315,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
             context.get("logger").error("agent.stream.failed", { error });
             controller.enqueue(
               encoder.encode(
-                `${JSON.stringify({ message: "Local model request failed", type: "error" })}\n`,
+                `${JSON.stringify({ message: "Selected model request failed", type: "error" })}\n`,
               ),
             );
           }
