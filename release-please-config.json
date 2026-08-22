@@ -5,6 +5,7 @@
     ".": {
       "release-type": "node",
       "package-name": "knowledge-agent",
+      "initial-version": "0.1.0",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "include-v-in-tag": true,
