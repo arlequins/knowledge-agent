@@ -8,7 +8,7 @@ export default $config({
     const region = sstAwsRegion();
 
     return {
-      name: "template-knowledge-agent-api",
+      name: "knowledge-agent-api",
       removal: input?.stage === Stage.PRODUCTION ? "retain" : "remove",
       protect: input?.stage === Stage.PRODUCTION,
       home: "aws",
@@ -41,7 +41,7 @@ export default $config({
     });
     const dataBucket = new aws.s3.BucketV2("AgentData", {
       tags: {
-        Application: "template-knowledge-agent",
+        Application: "knowledge-agent",
         DataClassification: "application-data",
         Stage: $app.stage,
       },

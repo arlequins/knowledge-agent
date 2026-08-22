@@ -22,7 +22,7 @@ export default $config({
     const region = sstAwsRegion();
 
     return {
-      name: "template-knowledge-agent-batch",
+      name: "knowledge-agent-batch",
       removal: input?.stage === Stage.PRODUCTION ? "retain" : "remove",
       protect: input?.stage === Stage.PRODUCTION,
       home: "aws",

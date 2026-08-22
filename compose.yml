@@ -25,7 +25,7 @@ services:
       - -c
       - >-
         mc alias set template http://minio:9000 template-local template-local-secret &&
-        mc mb --ignore-existing template/template-knowledge-agent
+        mc mb --ignore-existing template/knowledge-agent
   postgres:
     image: postgres:18-alpine
     environment:

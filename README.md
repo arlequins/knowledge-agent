@@ -1,4 +1,4 @@
-# template-knowledge-agent
+# knowledge-agent
 
 An AWS-ready, provider-neutral template for evidence-grounded chat over
 Fumadocs documentation, T3 monorepos, approved live application data, and
@@ -46,13 +46,15 @@ public template.
 ## Local pilot
 
 Requirements are Node.js and pnpm versions matching `package.json`, Docker, and
-an OpenAI API key. Start from the checked-in examples; do not commit the local
-environment file.
+Ollama. Phase 1 uses local `qwen2.5:3b` chat and `nomic-embed-text` embedding
+models by default, so no hosted-model API key is required. Start from the
+checked-in examples; do not commit the local environment file.
 
 ```bash
 pnpm install
 pnpm agent:setup
-# Add OPENAI_API_KEY to .env.localhost
+ollama pull qwen2.5:3b
+ollama pull nomic-embed-text
 pnpm db:start
 pnpm db:setup
 pnpm knowledge:bootstrap

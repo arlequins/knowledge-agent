@@ -1,8 +1,8 @@
 {
-  "name": "template-knowledge-agent",
-  "displayName": "Knowledge Agent Template",
+  "name": "knowledge-agent",
+  "displayName": "Knowledge Agent",
   "scope": "@arlequins",
-  "domain": "agent.example.com",
+  "domain": "knowledge-agent.localhost",
   "preset": "full",
-  "features": ["auth", "batch", "sst"]
+  "features": ["auth", "batch", "sst", "example-ui"]
 }

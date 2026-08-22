@@ -2,6 +2,7 @@ export type SourceChunk = { content: string; locator: string; ordinal: number };
 
 const MAX_CHARS = 2_400;
 const SOURCE_LINES = 80;
+const SOURCE_OVERLAP_LINES = 20;
 
 function splitLongSection(
   content: string,
@@ -47,7 +48,8 @@ export function chunkMarkdown(content: string, path: string): SourceChunk[] {
 export function chunkSource(content: string, path: string): SourceChunk[] {
   const lines = content.split("\n");
   const result: SourceChunk[] = [];
-  for (let start = 0; start < lines.length; start += SOURCE_LINES) {
+  const step = SOURCE_LINES - SOURCE_OVERLAP_LINES;
+  for (let start = 0; start < lines.length; start += step) {
     const end = Math.min(start + SOURCE_LINES, lines.length);
     const value = lines.slice(start, end).join("\n").trim();
     if (value)
@@ -56,6 +58,7 @@ export function chunkSource(content: string, path: string): SourceChunk[] {
         locator: `${path}#L${start + 1}-L${end}`,
         ordinal: result.length,
       });
+    if (end === lines.length) break;
   }
   return result;
 }

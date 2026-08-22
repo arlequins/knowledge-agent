@@ -3,9 +3,9 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TEMPLATE_NAME = "template-knowledge-agent";
+const TEMPLATE_NAME = "knowledge-agent";
 const TEMPLATE_SCOPE = "@arlequins";
-const TEMPLATE_DISPLAY_NAME = "Knowledge Agent Template";
+const TEMPLATE_DISPLAY_NAME = "Knowledge Agent";
 const REQUIRED_FEATURES = ["auth"];
 const OPTIONAL_FEATURES = ["auth", "batch", "sst", "example-ui"];
 const DEPENDENCY_FIELDS = [
@@ -237,7 +237,10 @@ export function validateOptions(options) {
 
 export function transformContent(relativePath, source, options) {
   const features = resolveFeatures(options);
-  let output = source
+  let output = options.domain
+    ? source.split("knowledge-agent.localhost").join(options.domain)
+    : source;
+  output = output
     .replaceAll("\r\n", "\n")
     .split(TEMPLATE_SCOPE)
     .join(options.scope)
@@ -246,8 +249,6 @@ export function transformContent(relativePath, source, options) {
   output = output
     .split(TEMPLATE_DISPLAY_NAME)
     .join(resolveDisplayName(options));
-  if (options.domain)
-    output = output.split("agent.example.com").join(options.domain);
 
   const appName = new Map([
     ["apps/web/sst.config.ts", "web"],

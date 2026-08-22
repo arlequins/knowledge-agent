@@ -15,7 +15,7 @@ import {
 
 const config: OidcConfig = {
   id: "primary",
-  issuer: "https://idp.agent.example.com",
+  issuer: "https://idp.knowledge-agent.localhost",
   audience: ["example-api"],
   algorithms: ["RS256"],
 };
@@ -32,7 +32,7 @@ async function signedAccessToken(
   const { privateKey, publicKey } = await generateKeyPair("RS256");
   const token = await new SignJWT({
     name: "Example User",
-    email: "user@agent.example.com",
+    email: "user@knowledge-agent.localhost",
   })
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
     .setIssuer(overrides.issuer ?? config.issuer)
@@ -123,7 +123,7 @@ describe("OIDC access token verification", () => {
       user: {
         id: "user-123",
         name: "Example User",
-        email: "user@agent.example.com",
+        email: "user@knowledge-agent.localhost",
       },
     });
   });
@@ -157,7 +157,7 @@ describe("application authorization", () => {
           issuer: config.issuer,
           subject: "subject-1",
           name: "Example User",
-          email: "user@agent.example.com",
+          email: "user@knowledge-agent.localhost",
           roles: [],
         },
         claims: { sub: "subject-1", iss: config.issuer },

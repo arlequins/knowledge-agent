@@ -61,14 +61,20 @@ describe("createS3Cache", () => {
       ttlJitterRatio: 0,
     });
 
-    await cache.set("user@agent.example.com", { id: 1 }, { ttlSeconds: 10 });
-    expect([...double.objects.keys()][0]).not.toContain(
-      "user@agent.example.com",
+    await cache.set(
+      "user@knowledge-agent.localhost",
+      { id: 1 },
+      { ttlSeconds: 10 },
     );
-    expect(await cache.get("user@agent.example.com")).toEqual({ id: 1 });
+    expect([...double.objects.keys()][0]).not.toContain(
+      "user@knowledge-agent.localhost",
+    );
+    expect(await cache.get("user@knowledge-agent.localhost")).toEqual({
+      id: 1,
+    });
 
     now = 11_001;
-    expect(await cache.get("user@agent.example.com")).toBeUndefined();
+    expect(await cache.get("user@knowledge-agent.localhost")).toBeUndefined();
   });
 
   it("preserves values such as Date across serialization", async () => {

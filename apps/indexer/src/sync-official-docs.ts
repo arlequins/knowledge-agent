@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import type { EmbeddingProviderPort } from "@arlequins/agent-core";
+import { createOllamaEmbeddingProvider } from "@arlequins/agent-ollama";
 import { createOpenAIEmbeddingProvider } from "@arlequins/agent-openai";
 import { closeDatabasePool, db } from "@arlequins/db-backbone/client";
 import {
@@ -148,7 +150,7 @@ async function fetchOfficialPage(source: OfficialSource, page: string) {
   )
     throw new Error(`Source URL is outside its allowlist: ${page}`);
   const response = await fetch(requested, {
-    headers: { "user-agent": "template-knowledge-agent/0.0 (+local indexing)" },
+    headers: { "user-agent": "knowledge-agent/0.0 (+local indexing)" },
     redirect: "follow",
     signal: AbortSignal.timeout(30_000),
   });
@@ -177,7 +179,7 @@ async function fetchOfficialPage(source: OfficialSource, page: string) {
 }
 
 async function storePage(input: {
-  embedding?: ReturnType<typeof createOpenAIEmbeddingProvider>;
+  embedding?: EmbeddingProviderPort;
   markdown: string;
   source: OfficialSource;
   url: string;
@@ -291,7 +293,12 @@ try {
         baseUrl: serverEnv.OPENAI_BASE_URL,
         model: serverEnv.OPENAI_EMBEDDING_MODEL,
       })
-    : undefined;
+    : serverEnv.OLLAMA_BASE_URL
+      ? createOllamaEmbeddingProvider({
+          baseUrl: serverEnv.OLLAMA_BASE_URL,
+          model: serverEnv.OLLAMA_EMBEDDING_MODEL,
+        })
+      : undefined;
   const totals = { failed: 0, indexed: 0, unchanged: 0 };
   for (const source of sources)
     for (const page of source.pages)

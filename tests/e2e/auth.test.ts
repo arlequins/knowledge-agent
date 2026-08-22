@@ -26,7 +26,7 @@ test("signs in with PKCE, reaches the protected API, and signs out", async ({
   );
 
   await expect(
-    page.getByRole("heading", { name: "Knowledge Agent Template" }),
+    page.getByRole("heading", { name: "Knowledge Agent" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Sign out" }).click();

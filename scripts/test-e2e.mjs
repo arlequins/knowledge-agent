@@ -19,7 +19,7 @@ const e2eEnv = {
 const composeArgs = [
   "compose",
   "-p",
-  "template-knowledge-agent-e2e",
+  "knowledge-agent-e2e",
   "-f",
   "compose.e2e.yml",
 ];

@@ -3,6 +3,8 @@ import { constants } from "node:fs";
 import { open, readdir } from "node:fs/promises";
 import { extname, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
+import type { EmbeddingProviderPort } from "@arlequins/agent-core";
+import { createOllamaEmbeddingProvider } from "@arlequins/agent-ollama";
 import { createOpenAIEmbeddingProvider } from "@arlequins/agent-openai";
 import { closeDatabasePool, db } from "@arlequins/db-backbone/client";
 import {
@@ -54,6 +56,7 @@ const IGNORED_DIRECTORIES = new Set([
   "target",
 ]);
 const MAX_FILE_BYTES = 1_000_000;
+const CHUNKING_VERSION = "source-overlap-v2";
 
 async function sourceFiles(root: string, maximum: number) {
   const files: string[] = [];
@@ -100,7 +103,7 @@ async function workspaceOwner(workspaceId: string) {
 
 async function indexFile(input: {
   absolute: string;
-  embedding?: ReturnType<typeof createOpenAIEmbeddingProvider>;
+  embedding?: EmbeddingProviderPort;
   root: string;
   userId: string;
   workspaceId: string;
@@ -122,6 +125,8 @@ async function indexFile(input: {
   if (content.includes("\0") || !content.trim()) return "skipped" as const;
   const path = relative(input.root, input.absolute).split(sep).join("/");
   const contentHash = createHash("sha256")
+    .update(CHUNKING_VERSION)
+    .update("\0")
     .update(path)
     .update("\0")
     .update(content)
@@ -218,7 +223,12 @@ try {
         baseUrl: serverEnv.OPENAI_BASE_URL,
         model: serverEnv.OPENAI_EMBEDDING_MODEL,
       })
-    : undefined;
+    : serverEnv.OLLAMA_BASE_URL
+      ? createOllamaEmbeddingProvider({
+          baseUrl: serverEnv.OLLAMA_BASE_URL,
+          model: serverEnv.OLLAMA_EMBEDDING_MODEL,
+        })
+      : undefined;
   const files = await sourceFiles(root, maximum);
   const totals = { indexed: 0, skipped: 0, unchanged: 0 };
   for (const [index, absolute] of files.entries()) {

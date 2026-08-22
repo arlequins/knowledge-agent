@@ -346,6 +346,12 @@ importers:
 
   apps/indexer:
     dependencies:
+      '@arlequins/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
+      '@arlequins/agent-ollama':
+        specifier: workspace:*
+        version: link:../../packages/agent-ollama
       '@arlequins/agent-openai':
         specifier: workspace:*
         version: link:../../packages/agent-openai

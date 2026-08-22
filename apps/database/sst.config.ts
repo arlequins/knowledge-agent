@@ -27,7 +27,7 @@ export default $config({
     const profile = serverEnv.SST_AWS_PROFILE?.trim();
 
     return {
-      name: "template-knowledge-agent-database",
+      name: "knowledge-agent-database",
       removal: input?.stage === Stage.PRODUCTION ? "retain" : "remove",
       protect: input?.stage === Stage.PRODUCTION,
       home: "aws",

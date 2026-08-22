@@ -64,7 +64,7 @@ export function qualifyFeatureMatrix() {
       transformContent(
         "package.json",
         JSON.stringify({
-          name: "template-knowledge-agent",
+          name: "knowledge-agent",
           scripts: {
             "batch:run": "batch",
             "dev:sst": "sst",

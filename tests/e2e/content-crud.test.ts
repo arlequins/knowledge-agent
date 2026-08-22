@@ -17,7 +17,7 @@ test("creates an agent workspace and starts a conversation without horizontal ov
 
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Knowledge Agent Template" }),
+    page.getByRole("heading", { name: "Knowledge Agent" }),
   ).toBeVisible();
   expect(
     await page.evaluate(

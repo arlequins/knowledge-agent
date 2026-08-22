@@ -16,7 +16,7 @@ export default $config({
     const region = sstAwsRegion();
 
     return {
-      name: "template-knowledge-agent-web",
+      name: "knowledge-agent-web",
       removal: input?.stage === Stage.PRODUCTION ? "retain" : "remove",
       protect: input?.stage === Stage.PRODUCTION,
       home: "aws",

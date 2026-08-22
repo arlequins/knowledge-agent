@@ -12,7 +12,7 @@ export default function HomePage() {
       <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
         Provider-neutral agent foundation
       </p>
-      <h1 className="mt-3 text-4xl font-bold">Knowledge Agent Template</h1>
+      <h1 className="mt-3 text-4xl font-bold">Knowledge Agent</h1>
       <p className="text-muted-foreground mt-4 max-w-2xl text-lg">
         대화, 기억, 지식 검색, 피드백을 로컬에서 먼저 검증하고 필요한 AWS
         서비스만 선택적으로 연결하는 에이전트 템플릿입니다.

@@ -30,15 +30,15 @@ Register equivalent HTTPS URIs for each deployed environment. The provider must 
 
 ```dotenv
 # API resource server
-OIDC_ISSUER_URL=https://idp.agent.example.com
+OIDC_ISSUER_URL=https://idp.knowledge-agent.localhost
 OIDC_AUDIENCE=example-api
 OIDC_ALLOWED_ALGORITHMS=RS256
-# OIDC_JWKS_URI=https://idp.agent.example.com/.well-known/jwks.json
+# OIDC_JWKS_URI=https://idp.knowledge-agent.localhost/.well-known/jwks.json
 
 # Static browser client
-NEXT_PUBLIC_OIDC_AUTHORITY=https://idp.agent.example.com
+NEXT_PUBLIC_OIDC_AUTHORITY=https://idp.knowledge-agent.localhost
 NEXT_PUBLIC_OIDC_CLIENT_ID=example-spa
-NEXT_PUBLIC_OIDC_RESOURCE=https://api.agent.example.com
+NEXT_PUBLIC_OIDC_RESOURCE=https://api.knowledge-agent.localhost
 NEXT_PUBLIC_OIDC_SCOPE=openid profile email
 ```
 

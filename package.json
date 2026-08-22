@@ -1,5 +1,5 @@
 {
-  "name": "template-knowledge-agent",
+  "name": "knowledge-agent",
   "version": "0.0.0",
   "private": true,
   "engines": {
@@ -91,5 +91,6 @@
     "turbo": "^2.10.5",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "description": "Local-first grounded knowledge agent for documentation and source code."
 }

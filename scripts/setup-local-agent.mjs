@@ -14,5 +14,5 @@ try {
 }
 
 console.log(
-  "Next: add OPENAI_API_KEY to .env.localhost, then run pnpm dev:local",
+  "Next: ensure Ollama is running with qwen2.5:3b and nomic-embed-text, then run pnpm dev:local",
 );

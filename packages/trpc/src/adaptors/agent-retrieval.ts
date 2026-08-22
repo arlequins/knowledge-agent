@@ -28,13 +28,34 @@ const cosine = (left: number[], right: number[]) => {
 };
 const pattern = (query: string) => `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
-function queryTerms(query: string) {
+function queryTerms(query: string, limit?: number) {
   const terms = query.match(/[\p{L}\p{N}]{2,}/gu) ?? [];
-  return [...new Set(terms)].slice(0, 8);
+  const normalized = terms.map((term) => term.toLocaleLowerCase());
+  const aliases = [
+    ["채팅", "chat"],
+    ["엔드포인트", "endpoint"],
+    ["엔드포인트", "api"],
+    ["임베딩", "embedding"],
+    ["모델", "model"],
+  ] as const;
+  for (const term of normalized)
+    for (const [prefix, alias] of aliases)
+      if (term.startsWith(prefix)) normalized.push(alias);
+  const unique = [...new Set(normalized)];
+  return limit ? unique.slice(0, limit) : unique;
+}
+
+function keywordScore(query: string, content: string) {
+  const expected = queryTerms(query, 16);
+  if (expected.length === 0) return 0;
+  const actual = new Set(queryTerms(content));
+  let matches = 0;
+  for (const term of expected) if (actual.has(term)) matches += 1;
+  return Math.min(1, matches / Math.min(expected.length, 4));
 }
 
 function textMatch(column: AnyColumn, query: string) {
-  const terms = queryTerms(query);
+  const terms = queryTerms(query, 16);
   return terms.length > 0
     ? or(...terms.map((term) => ilike(column, pattern(term))))
     : ilike(column, pattern(query));
@@ -101,7 +122,10 @@ export function createDatabaseKnowledgeSearch(
               )
               .map((row) => ({
                 ...row,
-                score: cosine(queryEmbedding, row.embedding),
+                score:
+                  cosine(queryEmbedding, row.embedding) +
+                  keywordScore(query, row.label) * 1.25 +
+                  keywordScore(query, row.content) * 0.35,
               }))
               .filter((row) => row.score > 0.2)
               .sort((left, right) => right.score - left.score)

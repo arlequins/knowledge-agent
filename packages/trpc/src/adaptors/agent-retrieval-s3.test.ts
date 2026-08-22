@@ -93,4 +93,38 @@ describe("S3 retrieval adapters", () => {
       search.search({ query: "Assistant", workspaceId: "workspace" }),
     ).resolves.toEqual([]);
   });
+
+  it("boosts exact code and filename terms above loosely related vectors", async () => {
+    const search = createS3KnowledgeSearch(
+      {
+        listKnowledgeChunks: vi.fn().mockResolvedValue([
+          {
+            chunkId: "docs",
+            content: "Generic HTTP documentation",
+            documentId: "doc",
+            embedding: [1, 0],
+            label: "framework.md",
+          },
+          {
+            chunkId: "ollama",
+            content: "Ollama sends chat requests to /api/chat over HTTP",
+            documentId: "code",
+            embedding: [0.8, 0.2],
+            label: "packages/agent-ollama/src/index.ts",
+          },
+        ]),
+      } as never,
+      { embedding: { embed: vi.fn().mockResolvedValue([[1, 0]]) } },
+    );
+
+    await expect(
+      search.search({
+        query: "Ollama 채팅 HTTP 엔드포인트",
+        workspaceId: "workspace",
+      }),
+    ).resolves.toMatchObject([
+      { citation: { chunkId: "ollama" } },
+      { citation: { chunkId: "docs" } },
+    ]);
+  });
 });

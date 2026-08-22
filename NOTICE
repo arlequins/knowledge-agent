@@ -1,4 +1,4 @@
-template-knowledge-agent
+knowledge-agent
 
 This project builds on ideas and patterns from the T3 / create-t3-turbo ecosystem,
 but is not a line-by-line fork: AWS SST, batch Step Functions, and shared packages

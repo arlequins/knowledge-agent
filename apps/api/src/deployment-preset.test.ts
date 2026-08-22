@@ -17,11 +17,11 @@ describe("resolveApiDeploymentConfig", () => {
   it("adds an edge router for a Function URL custom domain or WAF", () => {
     expect(
       resolveApiDeploymentConfig({
-        customDomain: " api.agent.example.com ",
+        customDomain: " api.knowledge-agent.localhost ",
         wafEnabled: true,
       }),
     ).toMatchObject({
-      customDomain: "api.agent.example.com",
+      customDomain: "api.knowledge-agent.localhost",
       useEdgeRouter: true,
       wafEnabled: true,
     });

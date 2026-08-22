@@ -58,10 +58,10 @@ async function copyRepository() {
 
 async function assertTemplateIdentityRemoved() {
   const forbidden = [
-    "template-knowledge-agent",
+    "knowledge-agent",
     "@arlequins",
-    "Knowledge Agent Template",
-    "agent.example.com",
+    "Knowledge Agent",
+    "knowledge-agent.localhost",
   ];
   const files = execFileSync("git", ["ls-files", "-z"], {
     cwd: target,

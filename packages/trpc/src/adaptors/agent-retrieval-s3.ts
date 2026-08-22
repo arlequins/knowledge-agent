@@ -8,12 +8,21 @@ import type { S3AgentPlatformRepository } from "./agent-platform-s3";
 const MAX_RESULTS = 8;
 
 function terms(value: string) {
-  return new Set(
-    value
-      .toLocaleLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter((term) => term.length > 1),
-  );
+  const normalized = value
+    .toLocaleLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((term) => term.length > 1);
+  const aliases = [
+    ["채팅", "chat"],
+    ["엔드포인트", "endpoint"],
+    ["엔드포인트", "api"],
+    ["임베딩", "embedding"],
+    ["모델", "model"],
+  ] as const;
+  for (const term of normalized)
+    for (const [prefix, alias] of aliases)
+      if (term.startsWith(prefix)) normalized.push(alias);
+  return new Set(normalized);
 }
 
 function keywordScore(query: string, content: string) {
@@ -22,7 +31,7 @@ function keywordScore(query: string, content: string) {
   const actual = terms(content);
   let matches = 0;
   for (const term of expected) if (actual.has(term)) matches += 1;
-  return matches / expected.size;
+  return Math.min(1, matches / Math.min(expected.size, 4));
 }
 
 function cosineSimilarity(left: number[], right: number[]) {
@@ -93,8 +102,10 @@ export function createS3KnowledgeSearch(
           content: chunk.content,
           score:
             queryEmbedding && chunk.embedding
-              ? cosineSimilarity(queryEmbedding, chunk.embedding)
-              : keywordScore(query, chunk.content),
+              ? cosineSimilarity(queryEmbedding, chunk.embedding) +
+                keywordScore(query, chunk.label) * 1.25 +
+                keywordScore(query, chunk.content) * 0.35
+              : keywordScore(query, `${chunk.label}\n${chunk.content}`),
         }))
         .filter((chunk) => chunk.score > 0)
         .sort((left, right) => right.score - left.score)

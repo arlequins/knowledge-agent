@@ -19,6 +19,7 @@ describe("knowledge chunks", () => {
       "src/api.ts",
     );
     expect(chunks).toHaveLength(2);
-    expect(chunks[1]?.locator).toBe("src/api.ts#L81-L90");
+    expect(chunks[1]?.locator).toBe("src/api.ts#L61-L90");
+    expect(chunks[1]?.content).toContain("line 61");
   });
 });

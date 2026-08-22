@@ -1,12 +1,14 @@
 # Local knowledge-agent demo
 
 The local pilot uses Docker PostgreSQL for conversations and knowledge, the
-included OIDC mock for sign-in, and OpenAI for chat and embeddings.
+included OIDC mock for sign-in, and Ollama for local chat and embeddings. No
+hosted-model API key is required for Phase 1.
 
 ```bash
 pnpm install
 pnpm agent:setup
-# Put OPENAI_API_KEY in the ignored .env.localhost file.
+ollama pull qwen2.5:3b
+ollama pull nomic-embed-text
 pnpm dev:local
 ```
 

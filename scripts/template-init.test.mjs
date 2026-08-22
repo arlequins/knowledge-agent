@@ -113,7 +113,7 @@ describe("template:init", () => {
 
     const siteConfig = transformContent(
       "apps/web/src/config/site.ts",
-      'export const siteConfig = { name: "Knowledge Agent Template", shortName: "KA" };\n',
+      'export const siteConfig = { name: "Knowledge Agent", shortName: "KA" };\n',
       {
         name: "customer-portal",
         scope: "@company",
@@ -144,7 +144,7 @@ describe("template:init", () => {
     const rootPackage = transformContent(
       "package.json",
       JSON.stringify({
-        name: "template-knowledge-agent",
+        name: "knowledge-agent",
         scripts: {
           "batch:run": "batch",
           "dev:sst": "sst",
@@ -195,11 +195,11 @@ describe("template:init", () => {
     await mkdir(join(root, "apps/web"), { recursive: true });
     await writeFile(
       packagePath,
-      '{"name":"template-knowledge-agent","dependencies":{"@arlequins/env":"workspace:*"}}\n',
+      '{"name":"knowledge-agent","dependencies":{"@arlequins/env":"workspace:*"}}\n',
     );
     await writeFile(
       sstPath,
-      'name: "web"; // agent.example.com @arlequins/web\n',
+      'name: "web"; // knowledge-agent.localhost @arlequins/web\n',
     );
     const files = ["package.json", "apps/web/sst.config.ts"];
     const options = {
@@ -213,10 +213,7 @@ describe("template:init", () => {
       await initializeTemplate({ ...options, dryRun: true }, { root, files }),
       files,
     );
-    assert.match(
-      await readFile(packagePath, "utf8"),
-      /template-knowledge-agent/,
-    );
+    assert.match(await readFile(packagePath, "utf8"), /knowledge-agent/);
 
     await initializeTemplate(options, { root, files });
     assert.deepEqual(JSON.parse(await readFile(packagePath, "utf8")), {
