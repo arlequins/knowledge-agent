@@ -10,7 +10,7 @@ export default function HomePage() {
     <main
       className={
         user
-          ? "min-h-screen w-full px-3 py-3 sm:px-5 lg:px-6"
+          ? "min-h-screen w-full px-3 py-3 sm:px-4 lg:px-4"
           : "container max-w-3xl py-16"
       }
     >

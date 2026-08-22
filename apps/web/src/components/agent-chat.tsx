@@ -4,7 +4,7 @@ import { Button } from "@arlequins/ui/button";
 import { Input } from "@arlequins/ui/input";
 import { Textarea } from "@arlequins/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "~/auth/provider";
 import { env } from "~/env";
@@ -252,6 +252,7 @@ export function AgentChat() {
   const [streamedText, setStreamedText] = useState("");
   const [streamError, setStreamError] = useState<string>();
   const [isStreaming, setIsStreaming] = useState(false);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const workspaces = useQuery(trpc.agent.workspaces.queryOptions());
   const conversations = useQuery({
@@ -313,6 +314,24 @@ export function AgentChat() {
       setConversationId(conversations.data[0].id);
     }
   }, [conversationId, conversations.data, isNewConversation]);
+
+  useEffect(() => {
+    const hasConversationContent = Boolean(
+      conversationId ||
+        isStreaming ||
+        messages.data?.length ||
+        streamedText.length,
+    );
+    const viewport = messagesViewportRef.current;
+    if (!viewport || !hasConversationContent) return;
+    const frame = window.requestAnimationFrame(() => {
+      viewport.scrollTo({
+        behavior: isStreaming ? "auto" : "smooth",
+        top: viewport.scrollHeight,
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [conversationId, isStreaming, messages.data?.length, streamedText]);
 
   const createWorkspace = useMutation(
     trpc.agent.createWorkspace.mutationOptions({
@@ -603,8 +622,8 @@ export function AgentChat() {
   }
 
   return (
-    <section className="grid w-full min-w-0 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <aside className="rounded-xl border p-3 lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto">
+    <section className="grid w-full min-w-0 gap-3 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <aside className="rounded-xl border p-3 lg:max-h-[calc(100vh-6.75rem)] lg:overflow-y-auto">
         <p className="text-muted-foreground px-2 text-xs font-medium tracking-wide uppercase">
           워크스페이스
         </p>
@@ -765,6 +784,84 @@ export function AgentChat() {
         </details>
         <details className="mt-5 border-t pt-4">
           <summary className="cursor-pointer text-sm font-medium">
+            기억 후보 추가
+          </summary>
+          <form className="mt-3 space-y-2" onSubmit={submitMemory}>
+            <Input
+              aria-label="기억 내용"
+              onChange={(event) => setMemoryContent(event.target.value)}
+              placeholder="예: 사용자는 한국어 답변을 선호한다"
+              value={memoryContent}
+            />
+            <Button
+              className="w-full"
+              disabled={!memoryContent.trim() || createMemory.isPending}
+              type="submit"
+              variant="outline"
+            >
+              저장
+            </Button>
+          </form>
+          <p className="text-muted-foreground mt-2 text-xs">
+            후보 기억은 승인된 뒤에만 답변 문맥으로 사용됩니다.
+          </p>
+          {memories.data?.length ? (
+            <ul className="mt-3 space-y-2 text-xs">
+              {memories.data.map((memory) => (
+                <li className="rounded border p-2" key={memory.id}>
+                  <p>{memory.content}</p>
+                  <p className="text-muted-foreground mt-1">
+                    {memory.status} · 중요도 {memory.importance}
+                  </p>
+                  {isOwner && memory.status === "candidate" && workspaceId && (
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        className="text-muted-foreground hover:underline"
+                        onClick={() =>
+                          reviewMemory.mutate({
+                            memoryId: memory.id,
+                            status: "approved",
+                            workspaceId,
+                          })
+                        }
+                        type="button"
+                      >
+                        승인
+                      </button>
+                      <button
+                        className="text-muted-foreground hover:underline"
+                        onClick={() =>
+                          reviewMemory.mutate({
+                            memoryId: memory.id,
+                            status: "rejected",
+                            workspaceId,
+                          })
+                        }
+                        type="button"
+                      >
+                        거절
+                      </button>
+                      <button
+                        className="text-destructive hover:underline"
+                        onClick={() =>
+                          deleteMemory.mutate({
+                            memoryId: memory.id,
+                            workspaceId,
+                          })
+                        }
+                        type="button"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </details>
+        <details className="mt-5 border-t pt-4">
+          <summary className="cursor-pointer text-sm font-medium">
             운영 현황
           </summary>
           <p className="text-muted-foreground mt-2 text-xs">
@@ -873,7 +970,7 @@ export function AgentChat() {
           </details>
         ) : null}
       </aside>
-      <div className="flex min-w-0 flex-col rounded-xl border lg:h-[calc(100vh-7.5rem)] lg:min-h-[42rem]">
+      <div className="flex min-w-0 flex-col rounded-xl border lg:h-[calc(100vh-6.75rem)] lg:min-h-[42rem]">
         <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
           <h2 className="font-semibold">
             {conversations.data?.find(
@@ -893,13 +990,16 @@ export function AgentChat() {
             </Button>
           ) : null}
         </div>
-        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-8 lg:px-12">
+        <div
+          className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8"
+          ref={messagesViewportRef}
+        >
           {messages.data?.map((message, messageIndex) => (
             <article
               className={
                 message.role === "user"
-                  ? "ml-auto max-w-[min(85%,48rem)] rounded-2xl bg-primary px-4 py-3 text-primary-foreground"
-                  : "mx-auto w-full max-w-5xl py-3"
+                  ? "ml-auto max-w-[min(92%,56rem)] rounded-2xl bg-primary px-4 py-3 text-primary-foreground"
+                  : "w-full py-3"
               }
               key={message.id}
             >
@@ -943,12 +1043,12 @@ export function AgentChat() {
             </article>
           ))}
           {isStreaming && (
-            <article className="mx-auto w-full max-w-5xl py-3">
+            <article className="w-full py-3">
               <MarkdownMessage content={streamedText || "생성 중…"} />
             </article>
           )}
           {!conversationId && (
-            <div className="mx-auto flex h-full w-full max-w-5xl items-center justify-center py-16 text-center">
+            <div className="flex h-full w-full items-center justify-center py-16 text-center">
               <div>
                 <p className="text-xl font-semibold">무엇을 알고 싶으신가요?</p>
                 <p className="text-muted-foreground mt-2 text-sm">
@@ -959,21 +1059,44 @@ export function AgentChat() {
           )}
         </div>
         <form
-          className="border-t bg-background px-4 py-4 sm:px-8 lg:px-12"
+          className="border-t bg-background px-4 py-4 sm:px-6 lg:px-8"
           onSubmit={submitQuestion}
         >
-          <div className="mx-auto w-full max-w-5xl">
+          <div className="w-full">
             <Textarea
               aria-label="질문"
               className="min-h-24 resize-none rounded-2xl px-4 py-3 text-base"
               disabled={isStreaming || createConversation.isPending}
               onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.nativeEvent.isComposing)
+                  return;
+                if (event.ctrlKey) {
+                  event.preventDefault();
+                  const textarea = event.currentTarget;
+                  const selectionStart = textarea.selectionStart;
+                  const selectionEnd = textarea.selectionEnd;
+                  setQuestion(
+                    (current) =>
+                      `${current.slice(0, selectionStart)}\n${current.slice(selectionEnd)}`,
+                  );
+                  window.requestAnimationFrame(() => {
+                    textarea.setSelectionRange(
+                      selectionStart + 1,
+                      selectionStart + 1,
+                    );
+                  });
+                  return;
+                }
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }}
               placeholder="무엇을 도와드릴까요?"
               value={question}
             />
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">
-                응답은 현재 로컬 Ollama에서 생성됩니다.
+                Enter 전송 · Ctrl+Enter 줄바꿈 · 현재 로컬 Ollama
               </p>
               <Button
                 disabled={
@@ -995,83 +1118,6 @@ export function AgentChat() {
             )}
           </div>
         </form>
-        <details className="border-t px-4 py-3">
-          <summary className="cursor-pointer text-sm font-medium">
-            기억 후보 추가
-          </summary>
-          <form className="mt-3 flex gap-2" onSubmit={submitMemory}>
-            <Input
-              aria-label="기억 내용"
-              onChange={(event) => setMemoryContent(event.target.value)}
-              placeholder="예: 사용자는 한국어로 답변받기를 선호한다"
-              value={memoryContent}
-            />
-            <Button
-              disabled={!memoryContent.trim() || createMemory.isPending}
-              type="submit"
-              variant="outline"
-            >
-              저장
-            </Button>
-          </form>
-          <p className="text-muted-foreground mt-2 text-xs">
-            후보 기억은 승인 API를 거친 뒤에만 답변 문맥으로 사용됩니다.
-          </p>
-          {memories.data?.length ? (
-            <ul className="mt-3 space-y-2 text-xs">
-              {memories.data.map((memory) => (
-                <li className="rounded border p-2" key={memory.id}>
-                  <p>{memory.content}</p>
-                  <p className="text-muted-foreground mt-1">
-                    {memory.status} · 중요도 {memory.importance}
-                  </p>
-                  {isOwner && memory.status === "candidate" && workspaceId && (
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        className="text-muted-foreground hover:underline"
-                        onClick={() =>
-                          reviewMemory.mutate({
-                            memoryId: memory.id,
-                            status: "approved",
-                            workspaceId,
-                          })
-                        }
-                        type="button"
-                      >
-                        승인
-                      </button>
-                      <button
-                        className="text-muted-foreground hover:underline"
-                        onClick={() =>
-                          reviewMemory.mutate({
-                            memoryId: memory.id,
-                            status: "rejected",
-                            workspaceId,
-                          })
-                        }
-                        type="button"
-                      >
-                        거절
-                      </button>
-                      <button
-                        className="text-destructive hover:underline"
-                        onClick={() =>
-                          deleteMemory.mutate({
-                            memoryId: memory.id,
-                            workspaceId,
-                          })
-                        }
-                        type="button"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </details>
       </div>
     </section>
   );

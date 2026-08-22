@@ -31,5 +31,14 @@ test("creates an agent workspace and starts a conversation without horizontal ov
   await expect(page.locator("select")).toContainText(workspaceName);
   await page.getByRole("button", { name: "새 대화" }).click();
   await expect(page.getByRole("button", { name: "새 대화" })).toBeVisible();
-  await expect(page.getByLabel("질문")).toBeEnabled();
+  const question = page.getByLabel("질문");
+  await expect(question).toBeEnabled();
+  await question.fill("첫 줄");
+  await question.press("Control+Enter");
+  await expect(question).toHaveValue("첫 줄\n");
+  await question.fill("Enter로 전송되는 질문");
+  await question.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Enter로 전송되는 질문" }),
+  ).toBeVisible();
 });
