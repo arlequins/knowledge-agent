@@ -11,8 +11,10 @@ candidate. Raw reactions and comments are never training facts by themselves.
    `evidenceChunkIds`, required answer terms, and forbidden claims.
 4. `pnpm agent:tune:daily` exports only those approved investigations to a
    private `.local/tuning` dataset and trains a QLoRA adapter with MLX-LM.
-5. The candidate must answer every approved probe with all required terms and
-   none of the forbidden claims. A failed candidate is retained for diagnosis
+5. The candidate must answer every approved probe under the short review
+   prompt, the application-style prompt, and an evidence-bearing prompt. Every
+   variant must contain all required terms, omit forbidden claims, and avoid an
+   unexpected language switch. A failed candidate is retained for diagnosis
    but is not promoted.
 6. Only a passing versioned adapter becomes the new `.local/tuning/current`
    pointer. The base model stays immutable, avoiding lossy re-quantization when

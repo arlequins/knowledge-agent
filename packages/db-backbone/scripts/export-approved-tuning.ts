@@ -17,6 +17,19 @@ type ReviewedFinding = {
   forbiddenTerms?: string[];
 };
 
+const REVIEW_SYSTEM_PROMPT =
+  "근거로 확인된 사실만 답하고, 설계와 현재 활성화된 구성을 구분한다. 시간대 근거 없이 cron을 현지 시각으로 바꾸지 않는다.";
+const RUNTIME_SYSTEM_PROMPT =
+  "You are a precise evidence-grounded assistant. Answer entirely in the user's language; when the question is Korean, write only Korean except for exact technical identifiers and quoted source values, and never switch to Chinese. Treat user assertions as claims to verify. Distinguish proposed design, checked-in configuration, enabled schedule, and observed live state. A daily evaluation or improvement loop is not daily model fine-tuning. Give an exact run time only when evidence provides both an enabled schedule and its timezone. Never claim that an administrator or external system confirmed something unless that confirmation appears in the supplied evidence.";
+
+function systemPrompts(resolution: string) {
+  return [
+    REVIEW_SYSTEM_PROMPT,
+    RUNTIME_SYSTEM_PROMPT,
+    `${RUNTIME_SYSTEM_PROMPT}\n\nRetrieved knowledge:\n[source: approved investigation]\n${resolution}\n\nUse retrieved knowledge as evidence. If it is insufficient, say what is unknown instead of inventing facts.`,
+  ];
+}
+
 function outputDirectory() {
   const index = process.argv.indexOf("--output");
   const value = index >= 0 ? process.argv[index + 1] : undefined;
@@ -61,6 +74,7 @@ try {
     .orderBy(desc(Investigation.completedAt));
 
   const examples: Array<{
+    answer: string;
     evidence: Array<{ filename: string; locator: string | null }>;
     feedbackId: string;
     forbiddenTerms: string[];
@@ -68,6 +82,7 @@ try {
     messages: Array<{ content: string; role: "assistant" | "system" | "user" }>;
     question: string;
     requiredTerms: string[];
+    systemPrompts: string[];
   }> = [];
   for (const row of approved) {
     const finding = reviewedFinding(row.findings);
@@ -103,7 +118,10 @@ try {
       throw new Error(
         `Approved investigation ${row.investigationId} references missing evidence`,
       );
+    const answer = row.resolution.trim();
+    const prompts = systemPrompts(answer);
     examples.push({
+      answer,
       evidence: evidence.map(({ filename, locator }) => ({
         filename,
         locator,
@@ -113,23 +131,31 @@ try {
       investigationId: row.investigationId,
       messages: [
         {
-          content:
-            "근거로 확인된 사실만 답하고, 설계와 현재 활성화된 구성을 구분한다. 시간대 근거 없이 cron을 현지 시각으로 바꾸지 않는다.",
+          content: prompts[0] ?? REVIEW_SYSTEM_PROMPT,
           role: "system",
         },
         { content: question.content, role: "user" },
-        { content: row.resolution.trim(), role: "assistant" },
+        { content: answer, role: "assistant" },
       ],
       question: question.content,
       requiredTerms: finding.expectedTerms,
+      systemPrompts: prompts,
     });
   }
   if (examples.length === 0)
     throw new Error("No approved, evidence-backed tuning examples were found");
 
   await mkdir(output, { recursive: true });
-  const trainingRows = examples.map(({ messages }) =>
-    JSON.stringify({ messages }),
+  const trainingRows = examples.flatMap(({ answer, question, systemPrompts }) =>
+    systemPrompts.map((systemPrompt) =>
+      JSON.stringify({
+        messages: [
+          { content: systemPrompt, role: "system" },
+          { content: question, role: "user" },
+          { content: answer, role: "assistant" },
+        ],
+      }),
+    ),
   );
   const data = `${trainingRows.join("\n")}\n`;
   await Promise.all([

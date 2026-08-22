@@ -16,7 +16,7 @@ const baseModelSource =
   "mlx-community/Qwen2.5-14B-Instruct-4bit";
 const baseModel = baseModelSource;
 const iterations = process.env.LOCAL_TUNING_ITERS ?? "40";
-const evaluationSystemPrompt =
+const fallbackEvaluationSystemPrompt =
   "근거로 확인된 사실만 답하고, 설계와 현재 활성화된 구성을 구분한다. 시간대 근거 없이 cron을 현지 시각으로 바꾸지 않는다.";
 
 function run(command, args, options = {}) {
@@ -83,47 +83,51 @@ const manifest = JSON.parse(
 );
 const probeResults = [];
 for (const example of manifest.examples) {
-  const answer = run(
-    resolve(venvBin, "mlx_lm.generate"),
-    [
-      "--model",
-      baseModel,
-      "--adapter-path",
-      adapters,
-      "--prompt",
-      example.question,
-      "--system-prompt",
-      evaluationSystemPrompt,
-      "--max-tokens",
-      "512",
-      "--temp",
-      "0.1",
-      "--verbose",
-      "false",
-    ],
-    { capture: true },
-  );
-  const required = example.requiredTerms.map((term) => ({
-    matched: answer.includes(term),
-    term,
-  }));
-  const forbidden = example.forbiddenTerms.map((term) => ({
-    matched: answer.includes(term),
-    term,
-  }));
-  const unexpectedChinese =
-    /[\u4e00-\u9fff]/u.test(answer) && /[가-힣]/u.test(example.question);
-  probeResults.push({
-    answer,
-    feedbackId: example.feedbackId,
-    passed:
-      required.every((item) => item.matched) &&
-      forbidden.every((item) => !item.matched) &&
-      !unexpectedChinese,
-    required,
-    forbidden,
-    unexpectedChinese,
-  });
+  const prompts = example.systemPrompts ?? [fallbackEvaluationSystemPrompt];
+  for (const [promptIndex, systemPrompt] of prompts.entries()) {
+    const answer = run(
+      resolve(venvBin, "mlx_lm.generate"),
+      [
+        "--model",
+        baseModel,
+        "--adapter-path",
+        adapters,
+        "--prompt",
+        example.question,
+        "--system-prompt",
+        systemPrompt,
+        "--max-tokens",
+        "512",
+        "--temp",
+        "0.1",
+        "--verbose",
+        "false",
+      ],
+      { capture: true },
+    );
+    const required = example.requiredTerms.map((term) => ({
+      matched: answer.includes(term),
+      term,
+    }));
+    const forbidden = example.forbiddenTerms.map((term) => ({
+      matched: answer.includes(term),
+      term,
+    }));
+    const unexpectedChinese =
+      /[\u4e00-\u9fff]/u.test(answer) && /[가-힣]/u.test(example.question);
+    probeResults.push({
+      answer,
+      feedbackId: example.feedbackId,
+      passed:
+        required.every((item) => item.matched) &&
+        forbidden.every((item) => !item.matched) &&
+        !unexpectedChinese,
+      promptIndex,
+      required,
+      forbidden,
+      unexpectedChinese,
+    });
+  }
 }
 const passed = probeResults.every((result) => result.passed);
 await writeFile(
