@@ -17,7 +17,11 @@ import {
   Workspace,
   WorkspaceMember,
 } from "@arlequins/db-backbone/schema";
-import { and, count, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import {
+  conversationTitleFromQuestion,
+  isGenericConversationTitle,
+} from "../application/conversation-title";
 
 export type WorkspaceActor = { userId: string; workspaceId: string };
 
@@ -181,7 +185,7 @@ export function createAgentPlatformRepository(database: Database) {
     },
     async listConversations(actor: WorkspaceActor) {
       await assertMember(actor);
-      return database
+      const conversations = await database
         .select()
         .from(Conversation)
         .where(
@@ -191,6 +195,38 @@ export function createAgentPlatformRepository(database: Database) {
           ),
         )
         .orderBy(desc(Conversation.updatedAt));
+      const genericIds = conversations
+        .filter((conversation) =>
+          isGenericConversationTitle(conversation.title),
+        )
+        .map((conversation) => conversation.id);
+      if (!genericIds.length) return conversations;
+      const firstUserMessages = await database
+        .select({
+          content: Message.content,
+          conversationId: Message.conversationId,
+        })
+        .from(Message)
+        .where(
+          and(
+            inArray(Message.conversationId, genericIds),
+            eq(Message.role, "user"),
+          ),
+        )
+        .orderBy(asc(Message.createdAt));
+      const derivedTitles = new Map<string, string>();
+      for (const message of firstUserMessages) {
+        if (!derivedTitles.has(message.conversationId)) {
+          derivedTitles.set(
+            message.conversationId,
+            conversationTitleFromQuestion(message.content),
+          );
+        }
+      }
+      return conversations.map((conversation) => ({
+        ...conversation,
+        title: derivedTitles.get(conversation.id) ?? conversation.title,
+      }));
     },
     async archiveConversation(actor: WorkspaceActor, conversationId: string) {
       await assertMember(actor);
@@ -220,7 +256,11 @@ export function createAgentPlatformRepository(database: Database) {
     ) {
       await assertMember(actor);
       const [conversation] = await database
-        .select({ archivedAt: Conversation.archivedAt, id: Conversation.id })
+        .select({
+          archivedAt: Conversation.archivedAt,
+          id: Conversation.id,
+          title: Conversation.title,
+        })
         .from(Conversation)
         .where(
           and(
@@ -237,7 +277,13 @@ export function createAgentPlatformRepository(database: Database) {
         const [message] = await tx.insert(Message).values(input).returning();
         await tx
           .update(Conversation)
-          .set({ updatedAt: new Date() })
+          .set({
+            ...(input.role === "user" &&
+            isGenericConversationTitle(conversation.title)
+              ? { title: conversationTitleFromQuestion(input.content) }
+              : {}),
+            updatedAt: new Date(),
+          })
           .where(eq(Conversation.id, input.conversationId));
         return message;
       });

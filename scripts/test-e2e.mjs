@@ -1,19 +1,43 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:net";
 
+function availablePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Could not allocate an E2E PostgreSQL port"));
+        return;
+      }
+      server.close((error) =>
+        error ? reject(error) : resolve(String(address.port)),
+      );
+    });
+  });
+}
+
+const fileEnv = Object.fromEntries(
+  readFileSync(".env.e2e", "utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"))
+    .map((line) => {
+      const separator = line.indexOf("=");
+      if (separator <= 0) throw new Error(`Invalid .env.e2e line: ${line}`);
+      return [line.slice(0, separator), line.slice(separator + 1)];
+    }),
+);
+const postgresPort = await availablePort();
 const e2eEnv = {
   ...process.env,
-  ...Object.fromEntries(
-    readFileSync(".env.e2e", "utf8")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith("#"))
-      .map((line) => {
-        const separator = line.indexOf("=");
-        if (separator <= 0) throw new Error(`Invalid .env.e2e line: ${line}`);
-        return [line.slice(0, separator), line.slice(separator + 1)];
-      }),
-  ),
+  ...fileEnv,
+  DATABASE_PORT: postgresPort,
+  E2E_POSTGRES_PORT: postgresPort,
 };
 
 const composeArgs = [

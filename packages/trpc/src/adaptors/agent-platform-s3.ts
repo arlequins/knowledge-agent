@@ -1,5 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { FeedbackKind } from "@arlequins/agent-core";
+import {
+  conversationTitleFromQuestion,
+  isGenericConversationTitle,
+} from "../application/conversation-title";
 import type { JsonObjectStore } from "./s3-json-store";
 import { ObjectAlreadyExistsError, ObjectConflictError } from "./s3-json-store";
 
@@ -499,15 +503,39 @@ export function createS3AgentPlatformRepository(
     },
     async listConversations(actor: WorkspaceActor) {
       await assertMember(actor);
-      return (
+      const conversations = (
         await values<Conversation>(
           store,
           collectionPrefix(actor.workspaceId, "conversations"),
         )
       )
         .filter((item) => !item.archivedAt)
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-        .map(publicConversation);
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      return Promise.all(
+        conversations.map(async (conversation) => {
+          if (!isGenericConversationTitle(conversation.title))
+            return publicConversation(conversation);
+          const firstUserMessage = (
+            await values<Message>(
+              store,
+              collectionPrefix(
+                actor.workspaceId,
+                `messages/${conversation.id}`,
+              ),
+            )
+          )
+            .filter((message) => message.role === "user")
+            .sort((left, right) =>
+              left.createdAt.localeCompare(right.createdAt),
+            )[0];
+          return publicConversation({
+            ...conversation,
+            title: firstUserMessage
+              ? conversationTitleFromQuestion(firstUserMessage.content)
+              : conversation.title,
+          });
+        }),
+      );
     },
     async archiveConversation(actor: WorkspaceActor, conversationId: string) {
       await assertMember(actor);
@@ -544,7 +572,14 @@ export function createS3AgentPlatformRepository(
             throw new Error(
               "Conversation is archived and cannot accept messages",
             );
-          return { ...current, updatedAt: createdAt };
+          return {
+            ...current,
+            ...(input.role === "user" &&
+            isGenericConversationTitle(current.title)
+              ? { title: conversationTitleFromQuestion(input.content) }
+              : {}),
+            updatedAt: createdAt,
+          };
         },
       );
       const message: Message = {

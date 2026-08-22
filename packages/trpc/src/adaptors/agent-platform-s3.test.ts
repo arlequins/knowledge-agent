@@ -37,6 +37,20 @@ describe("S3 agent platform repository", () => {
     );
   });
 
+  it("replaces a generic conversation title with the first user question", async () => {
+    const { actor, repository } = await fixture();
+    const conversation = await repository.createConversation(actor, "새 대화");
+    await repository.addMessage(actor, {
+      content: "**React 훅이란?** 예시도 보여줘",
+      conversationId: conversation.id,
+      role: "user",
+    });
+
+    expect(await repository.listConversations(actor)).toMatchObject([
+      { id: conversation.id, title: "React 훅이란? 예시도 보여줘" },
+    ]);
+  });
+
   it("rejects messages after a conversation is archived", async () => {
     const { actor, repository } = await fixture();
     const conversation = await repository.createConversation(actor);

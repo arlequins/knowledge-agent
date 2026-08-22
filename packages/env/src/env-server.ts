@@ -69,6 +69,10 @@ export const serverEnv = createEnv({
     OIDC_PROVIDERS_JSON: z.string().optional(),
     /** Comma-separated OIDC `issuer|subject` identities promoted to administrator. */
     AUTH_BOOTSTRAP_ADMIN_IDENTITIES: z.string().optional(),
+    /** Application authentication flow. Google mode requires an email allowlist. */
+    AUTH_PROVIDER: z.enum(["google", "oidc"]).optional().default("oidc"),
+    /** Exact, comma-separated verified email addresses allowed to create an API session. */
+    AUTH_ALLOWED_EMAILS: z.string().optional(),
     /** Comma-separated browser origins accepted by the Hono API. */
     API_CORS_ORIGINS: z.string().optional(),
     /** Local Hono server port. */
@@ -179,6 +183,8 @@ export const serverEnv = createEnv({
     OIDC_PROVIDERS_JSON: process.env.OIDC_PROVIDERS_JSON,
     AUTH_BOOTSTRAP_ADMIN_IDENTITIES:
       process.env.AUTH_BOOTSTRAP_ADMIN_IDENTITIES,
+    AUTH_PROVIDER: process.env.AUTH_PROVIDER,
+    AUTH_ALLOWED_EMAILS: process.env.AUTH_ALLOWED_EMAILS,
     API_CORS_ORIGINS: process.env.API_CORS_ORIGINS,
     API_PORT: process.env.API_PORT,
     API_DEPLOYMENT_PRESET: process.env.API_DEPLOYMENT_PRESET,

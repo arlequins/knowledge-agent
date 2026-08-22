@@ -112,8 +112,12 @@ async function ask(page, evaluationCase) {
     })
     .last();
   await expect(assistant).toBeVisible();
-  const answer = (await assistant.locator("p").first().innerText()).trim();
+  const answer = (
+    await assistant.getByTestId("message-markdown").innerText()
+  ).trim();
   const citations = await assistant.locator("details li").allTextContents();
+  await page.getByRole("button", { name: "대화 보관" }).click();
+  await expect(page.getByRole("heading", { name: "새 대화" })).toBeVisible();
   return { answer, citations };
 }
 

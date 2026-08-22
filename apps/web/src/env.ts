@@ -20,6 +20,8 @@ export const env = createEnv({
   },
   server: {},
   client: {
+    NEXT_PUBLIC_AUTH_PROVIDER: z.enum(["google", "oidc"]).default("oidc"),
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1).optional(),
     NEXT_PUBLIC_SITE_URL: z.preprocess(
       (v) =>
         typeof v === "string" && v.trim().length > 0
@@ -48,6 +50,8 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_AUTH_PROVIDER: process.env.NEXT_PUBLIC_AUTH_PROVIDER,
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_OIDC_AUTHORITY: process.env.NEXT_PUBLIC_OIDC_AUTHORITY,
     NEXT_PUBLIC_OIDC_CLIENT_ID: process.env.NEXT_PUBLIC_OIDC_CLIENT_ID,
     NEXT_PUBLIC_OIDC_RESOURCE: process.env.NEXT_PUBLIC_OIDC_RESOURCE,

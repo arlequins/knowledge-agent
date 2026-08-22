@@ -9,6 +9,18 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useAuth } from "~/auth/provider";
 import { env } from "~/env";
 import { useTRPC } from "~/trpc/react";
+import { MarkdownMessage } from "./markdown-message";
+
+function conversationTitle(question: string): string {
+  const normalized = question
+    .replace(/[`*_~>#[\](){}|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const characters = Array.from(normalized || "새 대화");
+  return characters.length > 56
+    ? `${characters.slice(0, 56).join("")}…`
+    : characters.join("");
+}
 
 function messageError(error: unknown): string {
   return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
@@ -225,6 +237,8 @@ export function AgentChat() {
   const queryClient = useQueryClient();
   const [workspaceId, setWorkspaceId] = useState<string>();
   const [conversationId, setConversationId] = useState<string>();
+  const [isNewConversation, setIsNewConversation] = useState(false);
+  const [conversationLimit, setConversationLimit] = useState(30);
   const [workspaceName, setWorkspaceName] = useState("");
   const [documentContent, setDocumentContent] = useState("");
   const [documentContentType, setDocumentContentType] = useState<
@@ -295,16 +309,17 @@ export function AgentChat() {
   }, [workspaceId, workspaces.data]);
 
   useEffect(() => {
-    if (!conversationId && conversations.data?.[0]) {
+    if (!conversationId && !isNewConversation && conversations.data?.[0]) {
       setConversationId(conversations.data[0].id);
     }
-  }, [conversationId, conversations.data]);
+  }, [conversationId, conversations.data, isNewConversation]);
 
   const createWorkspace = useMutation(
     trpc.agent.createWorkspace.mutationOptions({
       onSuccess: async (workspace) => {
         setWorkspaceId(workspace.id);
         setConversationId(undefined);
+        setIsNewConversation(true);
         setWorkspaceName("");
         await queryClient.invalidateQueries({
           queryKey: trpc.agent.workspaces.queryKey(),
@@ -316,6 +331,20 @@ export function AgentChat() {
     trpc.agent.createConversation.mutationOptions({
       onSuccess: async (conversation) => {
         setConversationId(conversation?.id);
+        setIsNewConversation(false);
+        await queryClient.invalidateQueries({
+          queryKey: trpc.agent.conversations.queryKey({
+            workspaceId: workspaceId ?? "",
+          }),
+        });
+      },
+    }),
+  );
+  const archiveConversation = useMutation(
+    trpc.agent.archiveConversation.mutationOptions({
+      onSuccess: async () => {
+        setConversationId(undefined);
+        setIsNewConversation(true);
         await queryClient.invalidateQueries({
           queryKey: trpc.agent.conversations.queryKey({
             workspaceId: workspaceId ?? "",
@@ -464,11 +493,21 @@ export function AgentChat() {
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!workspaceId || !conversationId || !question.trim()) return;
+    const submittedQuestion = question.trim();
+    if (!workspaceId || !submittedQuestion) return;
     setIsStreaming(true);
     setStreamedText("");
     setStreamError(undefined);
     try {
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        const conversation = await createConversation.mutateAsync({
+          title: conversationTitle(submittedQuestion),
+          workspaceId,
+        });
+        if (!conversation) throw new Error("대화를 만들지 못했습니다.");
+        activeConversationId = conversation.id;
+      }
       const response = await fetch(
         `${env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/agent/stream`,
         {
@@ -479,7 +518,11 @@ export function AgentChat() {
               : {}),
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ conversationId, question, workspaceId }),
+          body: JSON.stringify({
+            conversationId: activeConversationId,
+            question: submittedQuestion,
+            workspaceId,
+          }),
         },
       );
       if (!response.ok || !response.body) {
@@ -509,7 +552,13 @@ export function AgentChat() {
       }
       setQuestion("");
       await queryClient.invalidateQueries({
-        queryKey: trpc.agent.messages.queryKey({ conversationId, workspaceId }),
+        queryKey: trpc.agent.messages.queryKey({
+          conversationId: activeConversationId,
+          workspaceId,
+        }),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.agent.conversations.queryKey({ workspaceId }),
       });
     } catch (error) {
       setStreamError(streamErrorMessage(error));
@@ -554,8 +603,8 @@ export function AgentChat() {
   }
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[15rem_1fr]">
-      <aside className="rounded-xl border p-3">
+    <section className="grid w-full min-w-0 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside className="rounded-xl border p-3 lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto">
         <p className="text-muted-foreground px-2 text-xs font-medium tracking-wide uppercase">
           워크스페이스
         </p>
@@ -564,6 +613,8 @@ export function AgentChat() {
           onChange={(event) => {
             setWorkspaceId(event.target.value);
             setConversationId(undefined);
+            setIsNewConversation(false);
+            setConversationLimit(30);
           }}
           value={workspaceId}
         >
@@ -575,25 +626,43 @@ export function AgentChat() {
         </select>
         <Button
           className="mt-4 w-full"
-          disabled={createConversation.isPending}
-          onClick={() =>
-            createConversation.mutate({ title: "새 대화", workspaceId })
-          }
+          disabled={isStreaming}
+          onClick={() => {
+            setConversationId(undefined);
+            setIsNewConversation(true);
+            setQuestion("");
+            setStreamError(undefined);
+          }}
           variant="outline"
         >
           새 대화
         </Button>
-        <div className="mt-4 space-y-1">
-          {conversations.data?.map((conversation) => (
+        <div className="mt-4 max-h-64 space-y-1 overflow-y-auto pr-1">
+          {conversations.data
+            ?.slice(0, conversationLimit)
+            .map((conversation) => (
+              <button
+                className={`w-full rounded-md px-2 py-2 text-left text-sm ${conversationId === conversation.id ? "bg-accent" : "hover:bg-accent/60"}`}
+                key={conversation.id}
+                onClick={() => {
+                  setConversationId(conversation.id);
+                  setIsNewConversation(false);
+                }}
+                title={conversation.title}
+                type="button"
+              >
+                <span className="block truncate">{conversation.title}</span>
+              </button>
+            ))}
+          {(conversations.data?.length ?? 0) > conversationLimit ? (
             <button
-              className={`w-full rounded-md px-2 py-2 text-left text-sm ${conversationId === conversation.id ? "bg-accent" : "hover:bg-accent/60"}`}
-              key={conversation.id}
-              onClick={() => setConversationId(conversation.id)}
+              className="text-muted-foreground w-full rounded-md px-2 py-2 text-left text-xs hover:bg-accent/60"
+              onClick={() => setConversationLimit((limit) => limit + 30)}
               type="button"
             >
-              {conversation.title}
+              이전 대화 더 보기 · 전체 {conversations.data?.length}개
             </button>
-          ))}
+          ) : null}
         </div>
         <details className="mt-5 border-t pt-4">
           <summary className="cursor-pointer text-sm font-medium">
@@ -804,27 +873,43 @@ export function AgentChat() {
           </details>
         ) : null}
       </aside>
-      <div className="flex min-h-[34rem] flex-col rounded-xl border">
-        <div className="border-b px-5 py-4">
+      <div className="flex min-w-0 flex-col rounded-xl border lg:h-[calc(100vh-7.5rem)] lg:min-h-[42rem]">
+        <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
           <h2 className="font-semibold">
             {conversations.data?.find(
               (conversation) => conversation.id === conversationId,
-            )?.title ?? "대화를 선택하세요"}
+            )?.title ?? "새 대화"}
           </h2>
+          {conversationId ? (
+            <Button
+              disabled={archiveConversation.isPending || isStreaming}
+              onClick={() =>
+                archiveConversation.mutate({ conversationId, workspaceId })
+              }
+              size="sm"
+              variant="outline"
+            >
+              대화 보관
+            </Button>
+          ) : null}
         </div>
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-8 lg:px-12">
           {messages.data?.map((message, messageIndex) => (
             <article
               className={
                 message.role === "user"
-                  ? "ml-auto max-w-[85%] rounded-xl bg-primary px-4 py-3 text-primary-foreground"
-                  : "mr-auto max-w-[85%] rounded-xl bg-muted px-4 py-3"
+                  ? "ml-auto max-w-[min(85%,48rem)] rounded-2xl bg-primary px-4 py-3 text-primary-foreground"
+                  : "mx-auto w-full max-w-5xl py-3"
               }
               key={message.id}
             >
-              <p className="whitespace-pre-wrap text-sm leading-6">
-                {message.content}
-              </p>
+              {message.role === "assistant" ? (
+                <MarkdownMessage content={message.content} />
+              ) : (
+                <p className="whitespace-pre-wrap text-sm leading-6">
+                  {message.content}
+                </p>
+              )}
               {message.role === "assistant" && (
                 <MessageFeedback
                   messageId={message.id}
@@ -858,42 +943,57 @@ export function AgentChat() {
             </article>
           ))}
           {isStreaming && (
-            <article className="mr-auto max-w-[85%] rounded-xl bg-muted px-4 py-3">
-              <p className="whitespace-pre-wrap text-sm leading-6">
-                {streamedText || "생성 중…"}
-              </p>
+            <article className="mx-auto w-full max-w-5xl py-3">
+              <MarkdownMessage content={streamedText || "생성 중…"} />
             </article>
           )}
           {!conversationId && (
-            <p className="text-muted-foreground text-sm">
-              새 대화를 만들어 시작하세요.
-            </p>
+            <div className="mx-auto flex h-full w-full max-w-5xl items-center justify-center py-16 text-center">
+              <div>
+                <p className="text-xl font-semibold">무엇을 알고 싶으신가요?</p>
+                <p className="text-muted-foreground mt-2 text-sm">
+                  첫 질문을 보내면 대화가 저장되고 제목이 자동으로 만들어집니다.
+                </p>
+              </div>
+            </div>
           )}
         </div>
-        <form className="border-t p-4" onSubmit={submitQuestion}>
-          <Textarea
-            aria-label="질문"
-            disabled={!conversationId || isStreaming}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="무엇을 도와드릴까요?"
-            value={question}
-          />
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-xs">
-              응답은 현재 로컬 Ollama에서 생성됩니다.
-            </p>
-            <Button
-              disabled={!question.trim() || !conversationId || isStreaming}
-              type="submit"
-            >
-              {isStreaming ? "생성 중…" : "보내기"}
-            </Button>
+        <form
+          className="border-t bg-background px-4 py-4 sm:px-8 lg:px-12"
+          onSubmit={submitQuestion}
+        >
+          <div className="mx-auto w-full max-w-5xl">
+            <Textarea
+              aria-label="질문"
+              className="min-h-24 resize-none rounded-2xl px-4 py-3 text-base"
+              disabled={isStreaming || createConversation.isPending}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="무엇을 도와드릴까요?"
+              value={question}
+            />
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-muted-foreground text-xs">
+                응답은 현재 로컬 Ollama에서 생성됩니다.
+              </p>
+              <Button
+                disabled={
+                  !question.trim() ||
+                  isStreaming ||
+                  createConversation.isPending
+                }
+                type="submit"
+              >
+                {isStreaming || createConversation.isPending
+                  ? "생성 중…"
+                  : "보내기"}
+              </Button>
+            </div>
+            {streamError && (
+              <p className="text-destructive mt-3 text-sm" role="alert">
+                {streamError}
+              </p>
+            )}
           </div>
-          {streamError && (
-            <p className="text-destructive mt-3 text-sm" role="alert">
-              {streamError}
-            </p>
-          )}
         </form>
         <details className="border-t px-4 py-3">
           <summary className="cursor-pointer text-sm font-medium">
