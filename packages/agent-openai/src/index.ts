@@ -47,6 +47,11 @@ function errorMessage(status: number, body: string) {
   return `OpenAI request failed (${status})`;
 }
 
+function requestSignal(timeoutMs: number, signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 async function* readServerSentEvents(
   body: ReadableStream<Uint8Array>,
 ): AsyncIterable<Record<string, unknown>> {
@@ -99,7 +104,7 @@ export function createOpenAIModelProvider(
             store: false,
             stream: true,
           }),
-          signal: AbortSignal.timeout(configured.requestTimeoutMs),
+          signal: requestSignal(configured.requestTimeoutMs, input.signal),
         },
       );
       if (!response.ok)

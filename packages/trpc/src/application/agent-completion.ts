@@ -24,6 +24,7 @@ export async function* streamAgentCompletion(
   userId: string,
   input: AgentCompletionInput,
   acquiredLease?: AgentJobLease,
+  abortSignal?: AbortSignal,
 ): AsyncIterable<AgentCompletionEvent> {
   if (!services.model) throw new Error("Model completion is not configured");
   const lease =
@@ -51,6 +52,7 @@ export async function* streamAgentCompletion(
     const text: string[] = [];
     let citations: Citation[] = [];
     for await (const event of runtime.run({
+      ...(abortSignal ? { abortSignal } : {}),
       history: history.slice(0, -1).map((message) => ({
         content: message.content,
         role: message.role as "assistant" | "system" | "user",

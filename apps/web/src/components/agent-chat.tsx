@@ -11,6 +11,13 @@ import { env } from "~/env";
 import { useTRPC } from "~/trpc/react";
 import { MarkdownMessage } from "./markdown-message";
 
+const STARTER_PROMPTS = [
+  "이 코드베이스의 핵심 흐름을 근거와 함께 설명해줘",
+  "관련된 tRPC API와 데이터 모델의 연결을 찾아줘",
+  "공식 문서를 기준으로 이 기술의 사용법을 설명해줘",
+  "근거가 충분한 내용과 확인이 필요한 내용을 구분해줘",
+] as const;
+
 function conversationTitle(question: string): string {
   const normalized = question
     .replace(/[`*_~>#[\](){}|]/g, " ")
@@ -128,15 +135,20 @@ function MessageCitations({
 type FeedbackKind = "helpful" | "incorrect" | "missing" | "needs-investigation";
 
 function MessageFeedback({
+  content,
   messageId,
+  onReuse,
   workspaceId,
 }: {
+  content: string;
   messageId: string;
+  onReuse: (() => void) | undefined;
   workspaceId: string;
 }) {
   const trpc = useTRPC();
   const [comment, setComment] = useState("");
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>();
+  const [isCopied, setIsCopied] = useState(false);
   const [status, setStatus] = useState<string>();
   const submitFeedback = useMutation(
     trpc.agent.submitFeedback.mutationOptions({
@@ -159,11 +171,37 @@ function MessageFeedback({
     });
   }
 
+  async function copyAnswer() {
+    try {
+      await navigator.clipboard.writeText(content);
+      setIsCopied(true);
+      window.setTimeout(() => setIsCopied(false), 1500);
+    } catch {
+      setStatus("답변을 복사하지 못했습니다.");
+    }
+  }
+
   return (
     <div className="mt-3 border-t pt-3 text-xs">
       <div className="flex flex-wrap gap-x-3 gap-y-2">
         <button
-          className="text-muted-foreground hover:underline"
+          className="text-muted-foreground hover:text-foreground hover:underline"
+          onClick={() => void copyAnswer()}
+          type="button"
+        >
+          {isCopied ? "복사됨" : "복사"}
+        </button>
+        {onReuse ? (
+          <button
+            className="text-muted-foreground hover:text-foreground hover:underline"
+            onClick={onReuse}
+            type="button"
+          >
+            다시 묻기
+          </button>
+        ) : null}
+        <button
+          className="text-muted-foreground hover:text-foreground hover:underline"
           disabled={submitFeedback.isPending}
           onClick={() => submit("helpful")}
           type="button"
@@ -178,7 +216,7 @@ function MessageFeedback({
           ] as const
         ).map(([kind, label]) => (
           <button
-            className="text-muted-foreground hover:underline"
+            className="text-muted-foreground hover:text-foreground hover:underline"
             disabled={submitFeedback.isPending}
             key={kind}
             onClick={() => {
@@ -239,6 +277,8 @@ export function AgentChat() {
   const [conversationId, setConversationId] = useState<string>();
   const [isNewConversation, setIsNewConversation] = useState(false);
   const [conversationLimit, setConversationLimit] = useState(30);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [documentContent, setDocumentContent] = useState("");
   const [documentContentType, setDocumentContentType] = useState<
@@ -252,7 +292,12 @@ export function AgentChat() {
   const [streamedText, setStreamedText] = useState("");
   const [streamError, setStreamError] = useState<string>();
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamPhase, setStreamPhase] = useState<"answering" | "retrieving">(
+    "retrieving",
+  );
+  const abortControllerRef = useRef<AbortController>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
   const workspaces = useQuery(trpc.agent.workspaces.queryOptions());
   const conversations = useQuery({
@@ -287,6 +332,11 @@ export function AgentChat() {
   const isOwner =
     workspaces.data?.find((workspace) => workspace.id === workspaceId)?.role ===
     "owner";
+  const visibleConversations = conversations.data?.filter((conversation) =>
+    conversation.title
+      .toLocaleLowerCase()
+      .includes(conversationSearch.trim().toLocaleLowerCase()),
+  );
   const auditLog = useQuery({
     ...trpc.agent.auditLog.queryOptions({ workspaceId: workspaceId ?? "" }),
     enabled: Boolean(workspaceId && isOwner),
@@ -332,6 +382,13 @@ export function AgentChat() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [conversationId, isStreaming, messages.data?.length, streamedText]);
+
+  useEffect(
+    () => () => {
+      abortControllerRef.current?.abort();
+    },
+    [],
+  );
 
   const createWorkspace = useMutation(
     trpc.agent.createWorkspace.mutationOptions({
@@ -510,13 +567,35 @@ export function AgentChat() {
     });
   }
 
+  function reuseQuestion(value: string) {
+    setQuestion(value);
+    window.requestAnimationFrame(() => {
+      questionInputRef.current?.focus();
+    });
+  }
+
+  function stopGeneration() {
+    abortControllerRef.current?.abort();
+  }
+
+  function questionBefore(messageIndex: number) {
+    return messages.data
+      ?.slice(0, messageIndex)
+      .reverse()
+      .find((candidate) => candidate.role === "user")?.content;
+  }
+
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const submittedQuestion = question.trim();
     if (!workspaceId || !submittedQuestion) return;
     setIsStreaming(true);
+    setStreamPhase("retrieving");
     setStreamedText("");
     setStreamError(undefined);
+    const controller = new AbortController();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = controller;
     try {
       let activeConversationId = conversationId;
       if (!activeConversationId) {
@@ -542,6 +621,7 @@ export function AgentChat() {
             question: submittedQuestion,
             workspaceId,
           }),
+          signal: controller.signal,
         },
       );
       if (!response.ok || !response.body) {
@@ -564,6 +644,7 @@ export function AgentChat() {
             type: "complete" | "delta" | "error";
           };
           if (value.type === "delta") {
+            setStreamPhase("answering");
             setStreamedText((text) => text + (value.text ?? ""));
           }
           if (value.type === "error") throw new Error(value.message);
@@ -580,8 +661,20 @@ export function AgentChat() {
         queryKey: trpc.agent.conversations.queryKey({ workspaceId }),
       });
     } catch (error) {
-      setStreamError(streamErrorMessage(error));
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        setQuestion(submittedQuestion);
+        setStreamError(
+          "답변 생성을 중지했습니다. 질문을 다듬거나 그대로 다시 보낼 수 있습니다.",
+        );
+      } else {
+        setStreamError(streamErrorMessage(error));
+      }
     } finally {
+      if (abortControllerRef.current === controller)
+        abortControllerRef.current = null;
       setIsStreaming(false);
       setStreamedText("");
     }
@@ -623,7 +716,20 @@ export function AgentChat() {
 
   return (
     <section className="grid w-full min-w-0 gap-3 lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="rounded-xl border p-3 lg:max-h-[calc(100vh-6.75rem)] lg:overflow-y-auto">
+      <aside
+        className={`${isSidebarOpen ? "block" : "hidden"} rounded-xl border p-3 lg:block lg:max-h-[calc(100vh-6.75rem)] lg:overflow-y-auto`}
+      >
+        <div className="mb-3 flex items-center justify-between lg:hidden">
+          <p className="text-sm font-medium">대화 및 도구</p>
+          <Button
+            onClick={() => setIsSidebarOpen(false)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            닫기
+          </Button>
+        </div>
         <p className="text-muted-foreground px-2 text-xs font-medium tracking-wide uppercase">
           워크스페이스
         </p>
@@ -649,6 +755,7 @@ export function AgentChat() {
           onClick={() => {
             setConversationId(undefined);
             setIsNewConversation(true);
+            setIsSidebarOpen(false);
             setQuestion("");
             setStreamError(undefined);
           }}
@@ -656,8 +763,15 @@ export function AgentChat() {
         >
           새 대화
         </Button>
+        <Input
+          aria-label="대화 검색"
+          className="mt-3"
+          onChange={(event) => setConversationSearch(event.target.value)}
+          placeholder="대화 검색"
+          value={conversationSearch}
+        />
         <div className="mt-4 max-h-64 space-y-1 overflow-y-auto pr-1">
-          {conversations.data
+          {visibleConversations
             ?.slice(0, conversationLimit)
             .map((conversation) => (
               <button
@@ -666,6 +780,7 @@ export function AgentChat() {
                 onClick={() => {
                   setConversationId(conversation.id);
                   setIsNewConversation(false);
+                  setIsSidebarOpen(false);
                 }}
                 title={conversation.title}
                 type="button"
@@ -673,13 +788,18 @@ export function AgentChat() {
                 <span className="block truncate">{conversation.title}</span>
               </button>
             ))}
-          {(conversations.data?.length ?? 0) > conversationLimit ? (
+          {visibleConversations?.length === 0 ? (
+            <p className="text-muted-foreground px-2 py-3 text-xs">
+              일치하는 대화가 없습니다.
+            </p>
+          ) : null}
+          {(visibleConversations?.length ?? 0) > conversationLimit ? (
             <button
               className="text-muted-foreground w-full rounded-md px-2 py-2 text-left text-xs hover:bg-accent/60"
               onClick={() => setConversationLimit((limit) => limit + 30)}
               type="button"
             >
-              이전 대화 더 보기 · 전체 {conversations.data?.length}개
+              이전 대화 더 보기 · 전체 {visibleConversations?.length}개
             </button>
           ) : null}
         </div>
@@ -971,12 +1091,23 @@ export function AgentChat() {
         ) : null}
       </aside>
       <div className="flex min-w-0 flex-col rounded-xl border lg:h-[calc(100vh-6.75rem)] lg:min-h-[42rem]">
-        <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
-          <h2 className="font-semibold">
-            {conversations.data?.find(
-              (conversation) => conversation.id === conversationId,
-            )?.title ?? "새 대화"}
-          </h2>
+        <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-2">
+            <Button
+              className="lg:hidden"
+              onClick={() => setIsSidebarOpen(true)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              대화 및 도구
+            </Button>
+            <h2 className="truncate font-semibold">
+              {conversations.data?.find(
+                (conversation) => conversation.id === conversationId,
+              )?.title ?? "새 대화"}
+            </h2>
+          </div>
           {conversationId ? (
             <Button
               disabled={archiveConversation.isPending || isStreaming}
@@ -1004,7 +1135,12 @@ export function AgentChat() {
               key={message.id}
             >
               {message.role === "assistant" ? (
-                <MarkdownMessage content={message.content} />
+                <>
+                  <p className="text-muted-foreground mb-2 text-xs font-medium">
+                    Knowledge Agent
+                  </p>
+                  <MarkdownMessage content={message.content} />
+                </>
               ) : (
                 <p className="whitespace-pre-wrap text-sm leading-6">
                   {message.content}
@@ -1012,7 +1148,15 @@ export function AgentChat() {
               )}
               {message.role === "assistant" && (
                 <MessageFeedback
+                  content={message.content}
                   messageId={message.id}
+                  onReuse={
+                    messageIndex === (messages.data?.length ?? 0) - 1 &&
+                    questionBefore(messageIndex)
+                      ? () =>
+                          reuseQuestion(questionBefore(messageIndex) as string)
+                      : undefined
+                  }
                   workspaceId={workspaceId}
                 />
               )}
@@ -1043,29 +1187,47 @@ export function AgentChat() {
             </article>
           ))}
           {isStreaming && (
-            <article className="w-full py-3">
-              <MarkdownMessage content={streamedText || "생성 중…"} />
+            <article aria-live="polite" className="w-full py-3">
+              <p className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
+                <span className="size-2 animate-pulse rounded-full bg-primary" />
+                {streamPhase === "retrieving"
+                  ? "관련 근거를 찾는 중…"
+                  : "답변을 작성하는 중…"}
+              </p>
+              {streamedText ? <MarkdownMessage content={streamedText} /> : null}
             </article>
           )}
           {!conversationId && (
-            <div className="flex h-full w-full items-center justify-center py-16 text-center">
-              <div>
+            <div className="flex h-full w-full items-center justify-center py-12 text-center">
+              <div className="w-full max-w-3xl">
                 <p className="text-xl font-semibold">무엇을 알고 싶으신가요?</p>
                 <p className="text-muted-foreground mt-2 text-sm">
-                  첫 질문을 보내면 대화가 저장되고 제목이 자동으로 만들어집니다.
+                  문서, 코드, 공식 기술 자료를 함께 찾아 근거 중심으로 답합니다.
                 </p>
+                <div className="mt-6 grid gap-2 text-left sm:grid-cols-2">
+                  {STARTER_PROMPTS.map((prompt) => (
+                    <button
+                      className="hover:bg-accent rounded-xl border bg-background px-4 py-3 text-sm transition-colors"
+                      key={prompt}
+                      onClick={() => reuseQuestion(prompt)}
+                      type="button"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
         <form
-          className="border-t bg-background px-4 py-4 sm:px-6 lg:px-8"
+          className="border-t bg-background/95 px-4 py-4 backdrop-blur sm:px-6 lg:px-8"
           onSubmit={submitQuestion}
         >
-          <div className="w-full">
+          <div className="focus-within:ring-ring/40 w-full rounded-2xl border bg-background p-3 shadow-sm transition-shadow focus-within:ring-2">
             <Textarea
               aria-label="질문"
-              className="min-h-24 resize-none rounded-2xl px-4 py-3 text-base"
+              className="min-h-14 max-h-48 resize-none border-0 bg-transparent px-1 py-1 text-base shadow-none focus-visible:ring-0"
               disabled={isStreaming || createConversation.isPending}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={(event) => {
@@ -1092,31 +1254,39 @@ export function AgentChat() {
                 event.currentTarget.form?.requestSubmit();
               }}
               placeholder="무엇을 도와드릴까요?"
+              ref={questionInputRef}
               value={question}
             />
-            <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="mt-2 flex items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">
-                Enter 전송 · Ctrl+Enter 줄바꿈 · 현재 로컬 Ollama
+                Enter 전송 · Ctrl+Enter 줄바꿈
               </p>
-              <Button
-                disabled={
-                  !question.trim() ||
-                  isStreaming ||
-                  createConversation.isPending
-                }
-                type="submit"
-              >
-                {isStreaming || createConversation.isPending
-                  ? "생성 중…"
-                  : "보내기"}
-              </Button>
+              {isStreaming ? (
+                <Button
+                  onClick={stopGeneration}
+                  type="button"
+                  variant="outline"
+                >
+                  중지
+                </Button>
+              ) : (
+                <Button
+                  disabled={!question.trim() || createConversation.isPending}
+                  type="submit"
+                >
+                  보내기
+                </Button>
+              )}
             </div>
-            {streamError && (
-              <p className="text-destructive mt-3 text-sm" role="alert">
-                {streamError}
-              </p>
-            )}
           </div>
+          <p className="text-muted-foreground mt-2 text-center text-[11px]">
+            답변은 연결된 근거를 우선하며 중요한 내용은 인용을 직접 확인하세요.
+          </p>
+          {streamError && (
+            <p className="text-destructive mt-2 text-sm" role="alert">
+              {streamError}
+            </p>
+          )}
         </form>
       </div>
     </section>

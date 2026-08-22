@@ -58,16 +58,41 @@ async function* readNdjson(
   }
 }
 
-async function* finalAnswerChunks(
+async function* visibleAnswerChunks(
   chunks: AsyncIterable<string>,
 ): AsyncIterable<string> {
-  let content = "";
-  for await (const chunk of chunks) content += chunk;
+  let mode: "answer" | "reasoning" | "unknown" = "unknown";
+  let buffered = "";
+  for await (const chunk of chunks) {
+    if (mode === "answer") {
+      yield chunk;
+      continue;
+    }
+    buffered += chunk;
+    const normalized = buffered.trimStart();
+    if (mode === "unknown") {
+      if ("<think>".startsWith(normalized)) continue;
+      if (!normalized.startsWith("<think>")) {
+        mode = "answer";
+        yield buffered;
+        buffered = "";
+        continue;
+      }
+      mode = "reasoning";
+    }
+    const closing = buffered.lastIndexOf("</think>");
+    if (closing < 0) continue;
+    mode = "answer";
+    const answer = buffered.slice(closing + "</think>".length);
+    buffered = "";
+    if (answer) yield answer;
+  }
+  if (buffered) yield buffered;
+}
 
-  const closing = content.lastIndexOf("</think>");
-  const answer =
-    closing >= 0 ? content.slice(closing + "</think>".length) : content;
-  if (answer) yield answer;
+function requestSignal(timeoutMs: number, signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
 /** Local-only Ollama `/api/chat` adapter. No cloud credentials or SDK are involved. */
@@ -85,7 +110,6 @@ export function createOllamaModelProvider(
 
   return {
     async *streamText(input: StreamTextRequest) {
-      const signal = AbortSignal.timeout(requestTimeoutMs);
       const response = await fetchImpl(`${baseUrl}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -96,7 +120,7 @@ export function createOllamaModelProvider(
           stream: true,
           think,
         }),
-        signal,
+        signal: requestSignal(requestTimeoutMs, input.signal),
       });
       if (!response.ok) {
         const detail = (await response.text()).trim().slice(0, 300);
@@ -119,7 +143,7 @@ export function createOllamaModelProvider(
         }
       }
       if (think) yield* contentChunks();
-      else yield* finalAnswerChunks(contentChunks());
+      else yield* visibleAnswerChunks(contentChunks());
     },
   };
 }

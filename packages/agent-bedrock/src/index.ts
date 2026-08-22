@@ -11,6 +11,7 @@ export type BedrockConversePort = {
   stream(input: {
     messages: StreamTextRequest["messages"];
     modelId: string;
+    signal?: StreamTextRequest["signal"];
   }): AsyncIterable<string>;
 };
 
@@ -19,7 +20,11 @@ export function createBedrockModelProvider(input: {
   modelId: string;
 }): ModelProviderPort {
   return {
-    streamText: ({ messages }) =>
-      input.client.stream({ messages, modelId: input.modelId }),
+    streamText: ({ messages, signal }) =>
+      input.client.stream({
+        messages,
+        modelId: input.modelId,
+        ...(signal ? { signal } : {}),
+      }),
   };
 }

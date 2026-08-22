@@ -80,7 +80,10 @@ export function createAgentRuntime(dependencies: {
         { role: "user", content: input.question },
       ];
 
-      for await (const text of dependencies.model.streamText({ messages })) {
+      for await (const text of dependencies.model.streamText({
+        messages,
+        ...(input.abortSignal ? { signal: input.abortSignal } : {}),
+      })) {
         yield { type: "text-delta", text };
       }
 

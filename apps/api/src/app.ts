@@ -283,16 +283,19 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
             session.user.id,
             parsed.data,
             lease,
+            context.req.raw.signal,
           )) {
             controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
           }
         } catch (error) {
-          context.get("logger").error("agent.stream.failed", { error });
-          controller.enqueue(
-            encoder.encode(
-              `${JSON.stringify({ message: "Local model request failed", type: "error" })}\n`,
-            ),
-          );
+          if (!context.req.raw.signal.aborted) {
+            context.get("logger").error("agent.stream.failed", { error });
+            controller.enqueue(
+              encoder.encode(
+                `${JSON.stringify({ message: "Local model request failed", type: "error" })}\n`,
+              ),
+            );
+          }
         } finally {
           controller.close();
         }
