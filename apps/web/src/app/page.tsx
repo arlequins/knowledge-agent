@@ -1,5 +1,7 @@
 "use client";
 
+import { ThemeToggle } from "@arlequins/ui/theme";
+
 import { useAuth } from "~/auth/provider";
 import { AuthStatus } from "~/auth/status";
 import { AgentChat } from "~/components/agent-chat";
@@ -14,7 +16,7 @@ export default function HomePage() {
           : "container max-w-3xl py-16"
       }
     >
-      <header className={user ? "flex items-center justify-between gap-4" : ""}>
+      <header className="flex items-center justify-between gap-4">
         <div>
           <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
             Provider-neutral agent foundation
@@ -27,7 +29,17 @@ export default function HomePage() {
             Knowledge Agent
           </h1>
         </div>
-        <AuthStatus compact={Boolean(user)} />
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle
+            labels={{
+              auto: "시스템 설정",
+              dark: "다크",
+              light: "라이트",
+              toggle: "테마 변경",
+            }}
+          />
+          <AuthStatus compact={Boolean(user)} />
+        </div>
       </header>
       {!user ? (
         <p className="text-muted-foreground mt-4 max-w-2xl text-lg">
