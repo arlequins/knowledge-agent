@@ -1,0 +1,8 @@
+{
+  "name": "knowledge-agent",
+  "displayName": "Knowledge Agent",
+  "scope": "@arlequins",
+  "domain": "knowledge-agent.localhost",
+  "preset": "full",
+  "features": ["auth", "batch", "sst", "example-ui"]
+}
