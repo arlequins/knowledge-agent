@@ -70,6 +70,20 @@ username and password. The API is available at `http://localhost:5000`, with
 liveness at `/health/live`, readiness at `/health/ready`, and tRPC at
 `/api/trpc`.
 
+To use real Google authentication locally, create a Google OAuth 2.0 client of
+type **Web application**, add `http://localhost:3000` to its authorized
+JavaScript origins, and apply its public client ID plus the single allowed
+account before restarting the app:
+
+```bash
+pnpm auth:google:local -- <client-id>.apps.googleusercontent.com owner@example.com
+pnpm dev:local
+```
+
+The browser keeps the short-lived Google credential only for the current tab.
+The API independently verifies Google's signature, issuer, audience, expiry,
+`email_verified` claim, and the exact email allowlist before loading any data.
+
 The public example corpus lives under `examples/knowledge`. Private material is
 loaded from ignored `.local/` paths or an explicitly supplied absolute source
 path. The indexer reads files; it does not run repository lifecycle scripts.
@@ -83,6 +97,7 @@ embeddings stay in the local database.
 | --- | --- |
 | `pnpm dev:local` | Start the local database, identity provider, API, and web app. |
 | `pnpm agent:setup` | Create `.env.localhost` without overwriting existing values. |
+| `pnpm auth:google:local` | Configure real Google login and an exact local email allowlist. |
 | `pnpm knowledge:index` | Index an approved document or source tree. |
 | `pnpm knowledge:bootstrap` | Create the repeatable local test workspace. |
 | `pnpm knowledge:sync-official` | Index allowlisted official stack documentation. |

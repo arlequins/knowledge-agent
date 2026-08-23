@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@arlequins/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
@@ -13,13 +13,13 @@ export function AuthStatus(props: { compact?: boolean }) {
   const googleButton = useRef<HTMLDivElement>(null);
   const [googleError, setGoogleError] = useState<string>();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const session = useQuery(
     trpc.auth.me.queryOptions(undefined, { enabled: Boolean(user) }),
   );
 
   useEffect(() => {
     if (provider !== "google" || user || !googleButton.current) return;
-    setGoogleError(undefined);
     void renderGoogleButton(googleButton.current).catch((error: unknown) =>
       setGoogleError(
         error instanceof Error ? error.message : "Google 로그인 설정 오류",
@@ -29,9 +29,13 @@ export function AuthStatus(props: { compact?: boolean }) {
 
   useEffect(() => {
     if (provider === "google" && user && session.isError) {
+      setGoogleError(
+        "허용되지 않은 계정이거나 Google 로그인 세션이 만료되었습니다.",
+      );
+      queryClient.removeQueries({ queryKey: trpc.auth.me.queryKey() });
       void logout();
     }
-  }, [logout, provider, session.isError, user]);
+  }, [logout, provider, queryClient, session.isError, trpc, user]);
 
   if (isLoading) {
     return <Button disabled>로그인 확인 중…</Button>;

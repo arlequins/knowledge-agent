@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { env } from "~/env";
 import { AuthContext, type AuthContextValue, type AuthUser } from "./context";
+import { authUserFromGoogleCredential } from "./google-session";
 
 type GoogleCredentialResponse = { credential?: string };
 type GoogleIdentity = {
@@ -33,6 +34,7 @@ declare global {
 }
 
 let googleScriptPromise: Promise<void> | undefined;
+const GOOGLE_SESSION_KEY = "knowledge-agent.google-credential";
 
 function loadGoogleIdentity(): Promise<void> {
   if (window.google?.accounts.id) return Promise.resolve();
@@ -58,16 +60,26 @@ function loadGoogleIdentity(): Promise<void> {
 
 export function GoogleAuthProvider(props: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const credential = window.sessionStorage.getItem(GOOGLE_SESSION_KEY);
+    const restoredUser = credential
+      ? authUserFromGoogleCredential(credential)
+      : null;
+    if (restoredUser) setUser(restoredUser);
+    else window.sessionStorage.removeItem(GOOGLE_SESSION_KEY);
+    setIsLoading(false);
+  }, []);
 
   const acceptCredential = useCallback((response: GoogleCredentialResponse) => {
     if (!response.credential) return;
     // The browser treats this as an opaque bearer credential. The API verifies
     // Google's signature, issuer, audience, expiry, email_verified and allowlist.
-    setUser({
-      access_token: response.credential,
-      expired: false,
-      profile: { sub: "google-session" },
-    });
+    const nextUser = authUserFromGoogleCredential(response.credential);
+    if (!nextUser) return;
+    window.sessionStorage.setItem(GOOGLE_SESSION_KEY, response.credential);
+    setUser(nextUser);
   }, []);
 
   const initializeGoogle = useCallback(async () => {
@@ -104,19 +116,20 @@ export function GoogleAuthProvider(props: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     window.google?.accounts.id.disableAutoSelect();
+    window.sessionStorage.removeItem(GOOGLE_SESSION_KEY);
     setUser(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      isLoading: false,
+      isLoading,
       login,
       logout,
       provider: "google",
       renderGoogleButton,
       user,
     }),
-    [login, logout, renderGoogleButton, user],
+    [isLoading, login, logout, renderGoogleButton, user],
   );
 
   return (
