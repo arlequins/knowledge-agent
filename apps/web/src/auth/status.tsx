@@ -19,13 +19,14 @@ export function AuthStatus(props: { compact?: boolean }) {
   );
 
   useEffect(() => {
-    if (provider !== "google" || user || !googleButton.current) return;
+    if (isLoading || provider !== "google" || user || !googleButton.current)
+      return;
     void renderGoogleButton(googleButton.current).catch((error: unknown) =>
       setGoogleError(
         error instanceof Error ? error.message : "Google 로그인 설정 오류",
       ),
     );
-  }, [provider, renderGoogleButton, user]);
+  }, [isLoading, provider, renderGoogleButton, user]);
 
   useEffect(() => {
     if (provider === "google" && user && session.isError) {

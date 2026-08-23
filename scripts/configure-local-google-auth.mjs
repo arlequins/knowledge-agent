@@ -40,7 +40,9 @@ export function configureGoogleAuthEnv(source, { clientId, email }) {
 }
 
 async function main() {
-  const [clientId, email] = process.argv.slice(2);
+  const arguments_ = process.argv.slice(2);
+  if (arguments_[0] === "--") arguments_.shift();
+  const [clientId, email] = arguments_;
   if (!clientId || !email) {
     throw new Error(
       "사용법: pnpm auth:google:local -- <google-client-id> <allowed-email>",
