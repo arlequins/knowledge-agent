@@ -60,6 +60,7 @@ test("creates an agent workspace and starts a conversation without horizontal ov
   await expect(sendButton).toBeVisible();
 
   const modelButton = page.getByRole("button", { name: /모델 ·/ });
+  const defaultModelLabel = await modelButton.innerText();
   await modelButton.click();
   await page
     .getByRole("combobox", { name: "모델 제공자" })
@@ -77,7 +78,5 @@ test("creates an agent workspace and starts a conversation without horizontal ov
     .selectOption("gemini");
   await expect(page.getByText("연결됨 · Gemini")).toBeVisible();
   await page.getByRole("button", { name: "저장된 키 삭제" }).click();
-  await expect(page.getByRole("button", { name: /모델 ·/ })).toContainText(
-    "로컬 Ollama",
-  );
+  await expect(modelButton).toHaveText(defaultModelLabel);
 });
