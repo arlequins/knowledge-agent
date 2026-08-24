@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "mlx-community/Qwen2.5-14B-Instruct-4bit",
+      "label": "qwen-fallback",
+      "temperature": 0.1
+    },
+    {
+      "id": "ornith-ai/Ornith-1.5-9B-MLX-4bit",
+      "label": "ornith-drop-in",
+      "temperature": 0.1,
+      "thinking": false
+    },
+    {
+      "id": "ornith-ai/Ornith-1.5-9B-MLX-4bit",
+      "label": "ornith-current",
+      "temperature": 0.6,
+      "thinking": false,
+      "repetitionPenalty": 1,
+      "topK": 20,
+      "topP": 0.95
+    }
+  ],
+  "cases": [
+    {
+      "id": "grounded-schedule-en",
+      "priority": "primary",
+      "system": "Answer only from this evidence. Cloud config: WEEKLY_EVALUATION is enabled in production with cron(0 5 ? * MON *). Local fine-tuning documentation describes a separate user-scoped job at 03:00 local time, but the evidence does not say it is installed on this machine.",
+      "question": "Does this prove that local fine-tuning currently runs every day at 05:00? Explain briefly.",
+      "answerMustInclude": [
+        ["no", "does not"],
+        ["weekly", "monday"],
+        ["03:00", "3:00"]
+      ],
+      "answerMustNotInclude": ["confirmed by the administrator"]
+    },
+    {
+      "id": "dataset-leakage-en",
+      "priority": "primary",
+      "system": "Evidence: training requires at least 6 approved examples with distinct normalized questions and answers. A deterministic hash orders them. Test and validation each receive 20 percent, and training receives the remainder. Promotion probes only the held-out test split.",
+      "question": "Summarize how this design blocks train-validation-test leakage.",
+      "answerMustInclude": [
+        ["6", "six"],
+        ["distinct", "duplicate"],
+        ["held-out", "held out"],
+        ["test", "validation"]
+      ],
+      "answerMustNotInclude": [
+        "same examples are used",
+        "test examples are trained"
+      ]
+    },
+    {
+      "id": "async-code-en",
+      "priority": "coding",
+      "maxTokens": 512,
+      "system": "You are reviewing TypeScript. Be concise and provide a corrected expression.",
+      "question": "What is wrong here and how should it be fixed? const rows = ids.map(async (id) => db.query.items.findFirst({ where: eq(items.id, id) })); return rows; The caller expects resolved records, not promises.",
+      "answerMustInclude": ["Promise", "Promise.all"],
+      "answerMustNotInclude": ["no issue", "already resolved"]
+    },
+    {
+      "id": "react-state-en",
+      "priority": "coding",
+      "maxTokens": 512,
+      "system": "You are reviewing React code. Give the resulting value and the minimal robust fix.",
+      "question": "A click handler calls setCount(count + 1); setCount(count + 1); starting from 0. Why can it finish at 1, and how do we reliably increment twice?",
+      "answerMustInclude": [
+        "1",
+        ["functional", "updater"],
+        ["prev", "current"]
+      ],
+      "answerMustNotInclude": ["finish at 2 without changes"]
+    },
+    {
+      "id": "drizzle-soft-delete-en",
+      "priority": "coding",
+      "maxTokens": 512,
+      "system": "Evidence: only documents with status completed and deletedAt null are eligible for retrieval.",
+      "question": "Which Drizzle predicates must a retrieval query apply so superseded documents cannot appear?",
+      "answerMustInclude": ["completed", "deletedAt", "isNull"],
+      "answerMustNotInclude": ["include superseded"]
+    },
+    {
+      "id": "concurrent-index-en",
+      "priority": "coding",
+      "maxTokens": 512,
+      "system": "You are reviewing a PostgreSQL-backed TypeScript indexer. The database has a unique constraint on (workspaceId, contentHash). Give a robust concurrency fix, not just a description.",
+      "question": "Two workers both run SELECT to check that a document hash is absent, compute embeddings, then each INSERTs it. Identify the failure and propose an idempotent database-level fix.",
+      "answerMustInclude": [
+        ["race", "concurrent"],
+        ["unique", "constraint"],
+        ["on conflict", "onConflictDoNothing", "upsert"]
+      ],
+      "answerMustNotInclude": ["the select prevents duplicates", "no race"]
+    },
+    {
+      "id": "sse-tail-en",
+      "priority": "coding",
+      "maxTokens": 512,
+      "system": "You are reviewing an async TypeScript SSE parser. State the concrete edge case and a minimal fix.",
+      "question": "The parser appends decoded bytes to buffered, splits on newline, saves lines.pop() back to buffered, processes the complete lines, and immediately breaks when reader.read() returns done=true. What valid final event can be lost and how should the loop be fixed?",
+      "answerMustInclude": [
+        "buffered",
+        ["final", "last"],
+        ["process", "parse", "flush"]
+      ],
+      "answerMustNotInclude": ["nothing can be lost"]
+    },
+    {
+      "id": "trpc-authorization-en",
+      "priority": "coding",
+      "maxTokens": 512,
+      "system": "You are reviewing a tRPC endpoint in a multi-tenant application. Authentication and authorization are separate requirements.",
+      "question": "A publicProcedure accepts workspaceId from input and queries all vehicle sales for that workspace. Explain the vulnerability and show the essential server-side authorization fix.",
+      "answerMustInclude": [
+        ["IDOR", "authorization", "tenant"],
+        ["protectedProcedure", "authenticated"],
+        ["membership", "member"]
+      ],
+      "answerMustNotInclude": [
+        "trust the workspaceId",
+        "client-side check is sufficient"
+      ]
+    },
+    {
+      "id": "grounded-schedule-ko",
+      "priority": "secondary",
+      "system": "다음 근거로만 한국어로 답하세요. 운영 WEEKLY_EVALUATION은 월요일 05:00에 실행되는 주간 평가입니다. 로컬 미세조정 예약은 별개로 03:00이라고 문서화되어 있지만 이 컴퓨터에 설치됐다는 근거는 없습니다.",
+      "question": "로컬 파인튜닝이 매일 05:00에 실행된다고 볼 수 있나요?",
+      "answerMustInclude": [
+        ["아니", "볼 수 없", "결론 내릴 수"],
+        ["주간", "월요일"],
+        ["03:00", "3시"]
+      ],
+      "answerMustNotInclude": ["매일 05:00에 실행됩니다"]
+    },
+    {
+      "id": "grounded-schedule-ja",
+      "priority": "secondary",
+      "system": "次の根拠だけを使い日本語で答えてください。本番のWEEKLY_EVALUATIONは月曜日05:00の週次評価です。ローカル微調整は別の03:00ジョブとして文書化されていますが、この端末にインストール済みという根拠はありません。",
+      "question": "ローカル微調整が毎日05:00に実行されると言えますか。",
+      "answerMustInclude": [
+        ["いいえ", "言えません"],
+        ["週次", "月曜日"],
+        ["03:00", "3:00"]
+      ],
+      "answerMustNotInclude": ["毎日05:00に実行されます"]
+    }
+  ]
+}

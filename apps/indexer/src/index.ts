@@ -14,8 +14,9 @@ import {
   WorkspaceMember,
 } from "@arlequins/db-backbone/schema";
 import { serverEnv } from "@arlequins/env";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, like } from "drizzle-orm";
 import { chunkMarkdown, chunkSource } from "./chunk";
+import { staleRepositoryDocumentIds } from "./repository-snapshot";
 
 const ALLOWED_EXTENSIONS = new Set([
   ".cjs",
@@ -41,6 +42,7 @@ const ALLOWED_EXTENSIONS = new Set([
   ".yml",
 ]);
 const IGNORED_DIRECTORIES = new Set([
+  ".cache",
   ".git",
   ".local",
   ".next",
@@ -108,6 +110,7 @@ async function indexFile(input: {
   userId: string;
   workspaceId: string;
 }) {
+  const path = relative(input.root, input.absolute).split(sep).join("/");
   const handle = await open(
     input.absolute,
     constants.O_RDONLY | constants.O_NOFOLLOW,
@@ -116,14 +119,15 @@ async function indexFile(input: {
   let sizeBytes = 0;
   try {
     const info = await handle.stat();
-    if (!info.isFile() || info.size > MAX_FILE_BYTES) return "skipped" as const;
+    if (!info.isFile() || info.size > MAX_FILE_BYTES)
+      return { outcome: "skipped", path } as const;
     sizeBytes = info.size;
     content = await handle.readFile({ encoding: "utf8" });
   } finally {
     await handle.close();
   }
-  if (content.includes("\0") || !content.trim()) return "skipped" as const;
-  const path = relative(input.root, input.absolute).split(sep).join("/");
+  if (content.includes("\0") || !content.trim())
+    return { outcome: "skipped", path } as const;
   const contentHash = createHash("sha256")
     .update(CHUNKING_VERSION)
     .update("\0")
@@ -134,7 +138,7 @@ async function indexFile(input: {
   const chunks = [".md", ".mdx"].includes(extname(path).toLowerCase())
     ? chunkMarkdown(content, path)
     : chunkSource(content, path);
-  if (chunks.length === 0) return "skipped" as const;
+  if (chunks.length === 0) return { outcome: "skipped", path } as const;
   const existing = await db
     .select({ id: Document.id })
     .from(Document)
@@ -146,7 +150,7 @@ async function indexFile(input: {
       ),
     )
     .limit(1);
-  if (existing[0]) return "unchanged" as const;
+  if (existing[0]) return { outcome: "unchanged", path } as const;
 
   const embeddings: number[][] = [];
   if (input.embedding)
@@ -192,7 +196,32 @@ async function indexFile(input: {
       })),
     );
   });
-  return "indexed" as const;
+  return { outcome: "indexed", path } as const;
+}
+
+async function pruneMissingDocuments(
+  workspaceId: string,
+  activePaths: ReadonlySet<string>,
+) {
+  const activeDocuments = await db
+    .select({ filename: Document.filename, id: Document.id })
+    .from(Document)
+    .where(
+      and(
+        eq(Document.workspaceId, workspaceId),
+        isNull(Document.deletedAt),
+        like(Document.sourceUri, "local-repository://%"),
+      ),
+    );
+  const staleIds = staleRepositoryDocumentIds(activeDocuments, activePaths);
+  const supersededAt = new Date();
+  for (let start = 0; start < staleIds.length; start += 500) {
+    await db
+      .update(Document)
+      .set({ deletedAt: supersededAt, status: "superseded" })
+      .where(inArray(Document.id, staleIds.slice(start, start + 500)));
+  }
+  return staleIds.length;
 }
 
 const commandArguments = process.argv.slice(2);
@@ -201,6 +230,7 @@ const { values } = parseArgs({
   args: commandArguments,
   options: {
     "max-files": { default: "5000", type: "string" },
+    prune: { default: false, type: "boolean" },
     source: { type: "string" },
     "workspace-id": { type: "string" },
   },
@@ -229,22 +259,30 @@ try {
           model: serverEnv.OLLAMA_EMBEDDING_MODEL,
         })
       : undefined;
-  const files = await sourceFiles(root, maximum);
+  const discoveredFiles = await sourceFiles(root, maximum + 1);
+  if (values.prune && discoveredFiles.length > maximum)
+    throw new Error("--prune requires a complete scan; increase --max-files");
+  const files = discoveredFiles.slice(0, maximum);
   const totals = { indexed: 0, skipped: 0, unchanged: 0 };
+  const activePaths = new Set<string>();
   for (const [index, absolute] of files.entries()) {
-    const outcome = await indexFile({
+    const result = await indexFile({
       absolute,
       embedding,
       root,
       userId,
       workspaceId: values["workspace-id"],
     });
-    totals[outcome] += 1;
+    totals[result.outcome] += 1;
+    if (result.outcome !== "skipped") activePaths.add(result.path);
     if ((index + 1) % 100 === 0)
       console.log(`Processed ${index + 1}/${files.length}`);
   }
+  const pruned = values.prune
+    ? await pruneMissingDocuments(values["workspace-id"], activePaths)
+    : 0;
   console.log(
-    JSON.stringify({ files: files.length, root, ...totals }, null, 2),
+    JSON.stringify({ files: files.length, pruned, root, ...totals }, null, 2),
   );
 } finally {
   await closeDatabasePool();

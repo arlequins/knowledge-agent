@@ -8,12 +8,14 @@ import {
   createEvaluationCaseInputSchema,
   createMemoryInputSchema,
   createWorkspaceInputSchema,
+  deleteModelCredentialInputSchema,
   documentScopeInputSchema,
   ingestTextDocumentInputSchema,
   memoryScopeInputSchema,
   messageCitationInputSchema,
   publishReleaseInputSchema,
   reviewMemoryInputSchema,
+  saveModelCredentialInputSchema,
   startIndexInputSchema,
   submitFeedbackInputSchema,
   workspaceScopeInputSchema,
@@ -31,6 +33,24 @@ function actor(userId: string, workspaceId: string) {
 
 /** Workspace is taken from validated input and checked by the repository on every operation. */
 export const agentRouter = {
+  models: protectedProcedure.query(({ ctx }) => ctx.services.modelCatalog),
+  modelCredentials: protectedProcedure.query(({ ctx }) =>
+    ctx.services.modelCredentials.list(ctx.session.user.id),
+  ),
+  saveModelCredential: protectedProcedure
+    .input(saveModelCredentialInputSchema)
+    .mutation(({ ctx, input }) =>
+      ctx.services.modelCredentials.save(ctx.session.user.id, input),
+    ),
+  deleteModelCredential: protectedProcedure
+    .input(deleteModelCredentialInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await ctx.services.modelCredentials.delete(
+        ctx.session.user.id,
+        input.provider,
+      );
+      return { deleted: true };
+    }),
   workspaces: protectedProcedure.query(({ ctx }) =>
     ctx.services.agent.listWorkspaces(ctx.session.user.id),
   ),

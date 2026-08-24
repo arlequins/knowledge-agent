@@ -46,15 +46,17 @@ public template.
 ## Local pilot
 
 Requirements are Node.js and pnpm versions matching `package.json`, Docker, and
-Ollama. Phase 1 uses local `qwen2.5:3b` chat and `nomic-embed-text` embedding
+Ollama. Phase 1 uses the local `knowledge-agent-gemma3:12b` profile and
+`nomic-embed-text` embedding
 models by default, so no hosted-model API key is required. Start from the
 checked-in examples; do not commit the local environment file.
 
 ```bash
 pnpm install
 pnpm agent:setup
-ollama pull qwen2.5:3b
+ollama pull gemma3:12b
 ollama pull nomic-embed-text
+pnpm agent:model:setup
 pnpm db:start
 pnpm db:setup
 pnpm knowledge:bootstrap
@@ -67,6 +69,20 @@ Open `http://localhost:3000`. The local identity provider accepts any non-empty
 username and password. The API is available at `http://localhost:5000`, with
 liveness at `/health/live`, readiness at `/health/ready`, and tRPC at
 `/api/trpc`.
+
+To use real Google authentication locally, create a Google OAuth 2.0 client of
+type **Web application**, add `http://localhost:3000` to its authorized
+JavaScript origins, and apply its public client ID plus the single allowed
+account before restarting the app:
+
+```bash
+pnpm auth:google:local -- <client-id>.apps.googleusercontent.com owner@example.com
+pnpm dev:local
+```
+
+The browser keeps the short-lived Google credential only for the current tab.
+The API independently verifies Google's signature, issuer, audience, expiry,
+`email_verified` claim, and the exact email allowlist before loading any data.
 
 The public example corpus lives under `examples/knowledge`. Private material is
 loaded from ignored `.local/` paths or an explicitly supplied absolute source
@@ -81,6 +97,7 @@ embeddings stay in the local database.
 | --- | --- |
 | `pnpm dev:local` | Start the local database, identity provider, API, and web app. |
 | `pnpm agent:setup` | Create `.env.localhost` without overwriting existing values. |
+| `pnpm auth:google:local` | Configure real Google login and an exact local email allowlist. |
 | `pnpm knowledge:index` | Index an approved document or source tree. |
 | `pnpm knowledge:bootstrap` | Create the repeatable local test workspace. |
 | `pnpm knowledge:sync-official` | Index allowlisted official stack documentation. |

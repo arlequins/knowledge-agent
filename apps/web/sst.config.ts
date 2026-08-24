@@ -37,6 +37,13 @@ export default $config({
       environment: {
         NEXT_PUBLIC_SITE_URL: clientEnv.NEXT_PUBLIC_SITE_URL,
         NEXT_PUBLIC_API_URL: clientEnv.NEXT_PUBLIC_API_URL,
+        NEXT_PUBLIC_AUTH_PROVIDER: clientEnv.NEXT_PUBLIC_AUTH_PROVIDER,
+        ...(clientEnv.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+          ? {
+              NEXT_PUBLIC_GOOGLE_CLIENT_ID:
+                clientEnv.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+            }
+          : {}),
         NEXT_PUBLIC_OIDC_AUTHORITY: clientEnv.NEXT_PUBLIC_OIDC_AUTHORITY,
         NEXT_PUBLIC_OIDC_CLIENT_ID: clientEnv.NEXT_PUBLIC_OIDC_CLIENT_ID,
         ...(clientEnv.NEXT_PUBLIC_OIDC_RESOURCE

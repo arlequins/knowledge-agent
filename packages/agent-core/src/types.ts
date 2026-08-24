@@ -31,13 +31,16 @@ export type ModelMessage = {
 
 export type StreamTextRequest = {
   messages: ModelMessage[];
+  signal?: AbortSignal;
 };
 
 export type AgentInput = {
+  abortSignal?: AbortSignal;
   conversationSummary?: string;
   history: ModelMessage[];
   profile: AgentProfile;
   question: string;
+  retrievalQuery?: string;
   workspaceId: string;
 };
 

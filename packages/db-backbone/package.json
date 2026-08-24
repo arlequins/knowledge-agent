@@ -38,6 +38,7 @@
     "migrate": "pnpm with-env tsx ./scripts/migrate.ts",
     "seed": "pnpm with-env tsx ./scripts/seed.ts",
     "studio": "pnpm with-env drizzle-kit studio",
+    "test": "vitest run scripts/tuning-dataset.test.ts",
     "test:integration": "vitest run src/post-repository.integration.test.ts",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false && tsc --noEmit -p tsconfig.drizzle.json",
     "with-env": "dotenv -e ../../.env --"

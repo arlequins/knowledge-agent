@@ -13,6 +13,7 @@
     "bootstrap",
     "create-migration",
     "index",
+    "ollama",
     "sync-official",
     "with-env"
   ],

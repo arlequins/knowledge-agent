@@ -79,6 +79,20 @@ export const Message = agent.table(
   ],
 );
 
+/** User-scoped BYOK metadata. Provider secrets are encrypted before reaching this table. */
+export const ModelCredential = agent.table(
+  "model_credential",
+  (t) => ({
+    userId: t.uuid().notNull(),
+    provider: t.varchar({ length: 32 }).notNull(),
+    modelId: t.varchar({ length: 96 }).notNull(),
+    encryptedSecret: t.text().notNull(),
+    createdAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
+  }),
+  (table) => [primaryKey({ columns: [table.userId, table.provider] })],
+);
+
 export const MemoryRecord = agent.table(
   "memory",
   (t) => ({

@@ -1,26 +1,39 @@
 "use client";
 
 import type { User } from "oidc-client-ts";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { env } from "~/env";
 import { getUserManager, startLogin, startLogout } from "~/lib/client-auth";
+import {
+  AuthContext,
+  type AuthContextValue,
+  type AuthUser,
+  useAuth,
+} from "./context";
+import { GoogleAuthProvider } from "./google-provider";
 
-type AuthContextValue = {
-  user: User | null;
-  isLoading: boolean;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+export { useAuth };
 
 export function OidcAuthProvider(props: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  if (env.NEXT_PUBLIC_AUTH_PROVIDER === "google") {
+    return <GoogleAuthProvider>{props.children}</GoogleAuthProvider>;
+  }
+  return <OidcAuthProviderInner>{props.children}</OidcAuthProviderInner>;
+}
+
+function OidcAuthProviderInner(props: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const manager = getUserManager();
-    const onUserLoaded = (nextUser: User) => setUser(nextUser);
+    const onUserLoaded = (nextUser: User) =>
+      setUser({
+        access_token: nextUser.access_token,
+        expired: Boolean(nextUser.expired),
+        profile: nextUser.profile,
+      });
     const onUserUnloaded = () => setUser(null);
 
     manager.events.addUserLoaded(onUserLoaded);
@@ -30,7 +43,19 @@ export function OidcAuthProvider(props: { children: React.ReactNode }) {
 
     void manager
       .getUser()
-      .then((storedUser) => setUser(storedUser?.expired ? null : storedUser))
+      .then((storedUser) =>
+        setUser(
+          storedUser?.expired
+            ? null
+            : storedUser
+              ? {
+                  access_token: storedUser.access_token,
+                  expired: Boolean(storedUser.expired),
+                  profile: storedUser.profile,
+                }
+              : null,
+        ),
+      )
       .finally(() => setIsLoading(false));
 
     return () => {
@@ -47,6 +72,8 @@ export function OidcAuthProvider(props: { children: React.ReactNode }) {
       isLoading,
       login: () => startLogin(),
       logout: startLogout,
+      provider: "oidc",
+      renderGoogleButton: async () => undefined,
     }),
     [isLoading, user],
   );
@@ -54,12 +81,4 @@ export function OidcAuthProvider(props: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={value}>{props.children}</AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthContextValue {
-  const value = useContext(AuthContext);
-  if (!value) {
-    throw new Error("useAuth must be used within OidcAuthProvider");
-  }
-  return value;
 }

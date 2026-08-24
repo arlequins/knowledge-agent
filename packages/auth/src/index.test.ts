@@ -27,12 +27,15 @@ async function signedAccessToken(
     audience?: string;
     subject?: string;
     expiration?: string | number;
+    email?: string;
+    emailVerified?: boolean;
   } = {},
 ) {
   const { privateKey, publicKey } = await generateKeyPair("RS256");
   const token = await new SignJWT({
     name: "Example User",
-    email: "user@knowledge-agent.localhost",
+    email: overrides.email ?? "user@knowledge-agent.localhost",
+    email_verified: overrides.emailVerified ?? true,
   })
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
     .setIssuer(overrides.issuer ?? config.issuer)
@@ -126,6 +129,49 @@ describe("OIDC access token verification", () => {
         email: "user@knowledge-agent.localhost",
       },
     });
+  });
+
+  it("accepts only a cryptographically verified token for an allowed email", async () => {
+    const allowedEmail = "owner@knowledge-agent.localhost";
+    const { token, publicKey } = await signedAccessToken({
+      email: allowedEmail.toUpperCase(),
+    });
+    const auth = createOidcAuth(
+      createJwtAccessTokenVerifier(config, async () => publicKey),
+      { allowedEmails: new Set([allowedEmail]) },
+    );
+
+    await expect(
+      auth.getSession({
+        headers: new Headers({ Authorization: `Bearer ${token}` }),
+      }),
+    ).resolves.toMatchObject({ user: { email: allowedEmail.toUpperCase() } });
+  });
+
+  it("rejects unverified or non-allowlisted email claims", async () => {
+    const allowedEmails = new Set(["owner@knowledge-agent.localhost"]);
+    const unverified = await signedAccessToken({
+      email: "owner@knowledge-agent.localhost",
+      emailVerified: false,
+    });
+    const other = await signedAccessToken({ email: "other@example.com" });
+
+    await expect(
+      createOidcAuth(
+        createJwtAccessTokenVerifier(config, async () => unverified.publicKey),
+        { allowedEmails },
+      ).getSession({
+        headers: new Headers({ Authorization: `Bearer ${unverified.token}` }),
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      createOidcAuth(
+        createJwtAccessTokenVerifier(config, async () => other.publicKey),
+        { allowedEmails },
+      ).getSession({
+        headers: new Headers({ Authorization: `Bearer ${other.token}` }),
+      }),
+    ).resolves.toBeNull();
   });
 
   it("propagates provider availability failures", async () => {

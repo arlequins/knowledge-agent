@@ -7,6 +7,9 @@ await jiti.import("./src/env");
 
 /** @type {import("next").NextConfig} */
 const config = {
+  /** Isolate Playwright's dev server from an already-running local dev server. */
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   /** Static HTML export for S3 + CloudFront (no OpenNext / Node server in AWS for this app) */
   output: "export",
 

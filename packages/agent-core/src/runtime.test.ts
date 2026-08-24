@@ -71,4 +71,47 @@ describe("createAgentRuntime", () => {
       },
     ]);
   });
+
+  it("bounds retrieved context before calling a small local model", async () => {
+    const runtime = createAgentRuntime({
+      knowledgeSearch: {
+        async search() {
+          return Array.from({ length: 6 }, (_, index) => ({
+            citation: {
+              chunkId: `chunk-${index}`,
+              documentId: `doc-${index}`,
+              label: `Source ${index}`,
+            },
+            content: "x".repeat(100_000),
+            score: 1,
+          }));
+        },
+      },
+      memorySearch: {
+        async search() {
+          return [];
+        },
+      },
+      model: {
+        async *streamText(input) {
+          expect(input.messages[0]?.content.length).toBeLessThan(11_000);
+          yield "Bounded.";
+        },
+      },
+    });
+
+    for await (const _event of runtime.run({
+      history: [],
+      profile: {
+        id: "assistant",
+        instructions: "Be precise.",
+        name: "Assistant",
+        workspaceId: "workspace-1",
+      },
+      question: "Question",
+      workspaceId: "workspace-1",
+    })) {
+      // Drain the run to exercise the model boundary.
+    }
+  });
 });

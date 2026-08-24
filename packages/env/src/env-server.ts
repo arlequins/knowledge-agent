@@ -69,6 +69,10 @@ export const serverEnv = createEnv({
     OIDC_PROVIDERS_JSON: z.string().optional(),
     /** Comma-separated OIDC `issuer|subject` identities promoted to administrator. */
     AUTH_BOOTSTRAP_ADMIN_IDENTITIES: z.string().optional(),
+    /** Application authentication flow. Google mode requires an email allowlist. */
+    AUTH_PROVIDER: z.enum(["google", "oidc"]).optional().default("oidc"),
+    /** Exact, comma-separated verified email addresses allowed to create an API session. */
+    AUTH_ALLOWED_EMAILS: z.string().optional(),
     /** Comma-separated browser origins accepted by the Hono API. */
     API_CORS_ORIGINS: z.string().optional(),
     /** Local Hono server port. */
@@ -143,10 +147,15 @@ export const serverEnv = createEnv({
     OPENAI_EMBEDDING_MODEL: z.string().min(1).optional(),
     /** Local-only Ollama endpoint. Omit to keep model completion disabled. */
     OLLAMA_BASE_URL: z.url().optional(),
-    /** Pulled Ollama model tag; `qwen3:4b` is the low-memory default. */
+    /** Pulled Ollama model tag; `knowledge-agent-gemma3:12b` is the local quality default. */
     OLLAMA_MODEL: z.string().min(1).optional(),
     /** Pulled local embedding model used by document retrieval. */
     OLLAMA_EMBEDDING_MODEL: z.string().min(1).optional(),
+    /** Optional local MLX-LM server for a reviewed tuned model. */
+    MLX_BASE_URL: z.url().optional(),
+    MLX_MODEL: z.string().min(1).optional(),
+    /** Base64-encoded 32-byte key used to encrypt user-provided model credentials at rest. */
+    MODEL_CREDENTIAL_ENCRYPTION_KEY: z.string().min(43).optional(),
   },
   runtimeEnv: {
     SST_STAGE: process.env.SST_STAGE,
@@ -179,6 +188,8 @@ export const serverEnv = createEnv({
     OIDC_PROVIDERS_JSON: process.env.OIDC_PROVIDERS_JSON,
     AUTH_BOOTSTRAP_ADMIN_IDENTITIES:
       process.env.AUTH_BOOTSTRAP_ADMIN_IDENTITIES,
+    AUTH_PROVIDER: process.env.AUTH_PROVIDER,
+    AUTH_ALLOWED_EMAILS: process.env.AUTH_ALLOWED_EMAILS,
     API_CORS_ORIGINS: process.env.API_CORS_ORIGINS,
     API_PORT: process.env.API_PORT,
     API_DEPLOYMENT_PRESET: process.env.API_DEPLOYMENT_PRESET,
@@ -214,6 +225,10 @@ export const serverEnv = createEnv({
     OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
     OLLAMA_MODEL: process.env.OLLAMA_MODEL,
     OLLAMA_EMBEDDING_MODEL: process.env.OLLAMA_EMBEDDING_MODEL,
+    MLX_BASE_URL: process.env.MLX_BASE_URL,
+    MLX_MODEL: process.env.MLX_MODEL,
+    MODEL_CREDENTIAL_ENCRYPTION_KEY:
+      process.env.MODEL_CREDENTIAL_ENCRYPTION_KEY,
   },
   emptyStringAsUndefined: true,
   skipValidation: skipEnvValidation,

@@ -150,13 +150,30 @@ export function useTheme() {
   return context;
 }
 
-export function ThemeToggle() {
+type ThemeToggleLabels = {
+  auto: string;
+  dark: string;
+  light: string;
+  toggle: string;
+};
+
+const defaultThemeToggleLabels: ThemeToggleLabels = {
+  auto: "System",
+  dark: "Dark",
+  light: "Light",
+  toggle: "Toggle theme",
+};
+
+export function ThemeToggle(props: { labels?: ThemeToggleLabels }) {
   const { setTheme } = useTheme();
+  const labels = props.labels ?? defaultThemeToggleLabels;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          aria-label={labels.toggle}
+          title={labels.toggle}
           variant="outline"
           size="icon"
           className="[&>svg]:absolute [&>svg]:size-5 [&>svg]:scale-0"
@@ -164,18 +181,18 @@ export function ThemeToggle() {
           <SunIcon className="light:scale-100! auto:scale-0!" />
           <MoonIcon className="auto:scale-0! dark:scale-100!" />
           <DesktopIcon className="auto:scale-100!" />
-          <span className="sr-only">Toggle theme</span>
+          <span className="sr-only">{labels.toggle}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
+          {labels.light}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
+          {labels.dark}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("auto")}>
-          System
+          {labels.auto}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

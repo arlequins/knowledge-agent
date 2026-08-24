@@ -1,3 +1,4 @@
+import { serverEnv } from "@arlequins/env/server-env";
 import { errors } from "jose";
 import type { AuthSession, OidcClaims } from "../../domain/session";
 import type { AccessTokenVerifier } from "./verifier";
@@ -34,6 +35,7 @@ function stringClaim(claims: OidcClaims, name: string): string | null {
 
 export function createOidcAuth(
   verifyAccessToken: AccessTokenVerifier = verifyConfiguredAccessToken,
+  options: { allowedEmails?: ReadonlySet<string> } = {},
 ): TRPCAuth {
   return {
     async getSession({ headers }) {
@@ -48,6 +50,15 @@ export function createOidcAuth(
       }
       if (typeof claims.sub !== "string" || claims.sub.length === 0)
         return null;
+      const email = stringClaim(claims, "email");
+      if (options.allowedEmails?.size) {
+        if (
+          !email ||
+          claims.email_verified !== true ||
+          !options.allowedEmails.has(email.trim().toLowerCase())
+        )
+          return null;
+      }
       return {
         user: {
           id: claims.sub,
@@ -56,7 +67,7 @@ export function createOidcAuth(
           name:
             stringClaim(claims, "name") ??
             stringClaim(claims, "preferred_username"),
-          email: stringClaim(claims, "email"),
+          email,
           roles: [],
         },
         claims,
@@ -65,4 +76,19 @@ export function createOidcAuth(
   };
 }
 
-export const authApi = createOidcAuth();
+function configuredAllowedEmails(): ReadonlySet<string> {
+  const allowedEmails = new Set(
+    (serverEnv.AUTH_ALLOWED_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (serverEnv.AUTH_PROVIDER === "google" && allowedEmails.size === 0) {
+    throw new Error("Google authentication requires AUTH_ALLOWED_EMAILS");
+  }
+  return allowedEmails;
+}
+
+export const authApi = createOidcAuth(verifyConfiguredAccessToken, {
+  allowedEmails: configuredAllowedEmails(),
+});

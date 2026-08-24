@@ -20,6 +20,7 @@ node_modules/
 
 # Builds and tools
 .next/
+.next-e2e/
 out/
 next-env.d.ts
 .sst/

@@ -9,6 +9,7 @@ export type OidcClaims = Record<string, unknown> & {
   name?: string;
   preferred_username?: string;
   email?: string;
+  email_verified?: boolean;
 };
 
 export type AuthSession = {
