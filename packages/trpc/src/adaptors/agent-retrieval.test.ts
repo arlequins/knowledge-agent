@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isUsableKnowledgeSource,
   queryTerms,
+  repositoryOverviewScore,
   selectDiverseResults,
 } from "./agent-retrieval";
 
@@ -18,6 +19,29 @@ describe("local agent retrieval ranking", () => {
         "list",
       ]),
     );
+  });
+
+  it("expands a short Korean repository-purpose question to README terms", () => {
+    expect(queryTerms("현재의 레포의 목적을 알려줘")).toEqual(
+      expect.arrayContaining(["readme", "repository", "template", "purpose"]),
+    );
+  });
+
+  it("prioritizes the root README introduction for repository-purpose questions", () => {
+    expect(
+      repositoryOverviewScore(
+        "현재의 레포의 목적을 알려줘",
+        "README.md",
+        "# knowledge-agent\n\nAn AWS-ready template",
+      ),
+    ).toBe(2);
+    expect(
+      repositoryOverviewScore(
+        "현재의 레포의 목적을 알려줘",
+        "docs/template-readiness.md",
+        "# Template readiness",
+      ),
+    ).toBe(0);
   });
 
   it("prevents one document from occupying the entire context", () => {
@@ -39,6 +63,9 @@ describe("local agent retrieval ranking", () => {
   it("rejects generated build caches from retrieval", () => {
     expect(
       isUsableKnowledgeSource("packages/trpc/.cache/tsbuildinfo.json"),
+    ).toBe(false);
+    expect(
+      isUsableKnowledgeSource("apps/web/.next-e2e/dev/static/chunk.js"),
     ).toBe(false);
     expect(isUsableKnowledgeSource("packages/trpc/src/router/agent.ts")).toBe(
       true,

@@ -55,7 +55,11 @@ The current local base is `ornith-ai/Ornith-1.5-9B-MLX-4bit`. The conservative
 rollback target remains `mlx-community/Qwen2.5-14B-Instruct-4bit`. Override the
 current base with
 `LOCAL_TUNING_BASE_MODEL` and adjust the bounded training iteration count with
-`LOCAL_TUNING_ITERS`.
+`LOCAL_TUNING_ITERS`. Memory-constrained machines can further bound activation
+memory with `LOCAL_TUNING_MAX_SEQ_LENGTH` (default `768`) and
+`LOCAL_TUNING_NUM_LAYERS` (default `2`). The sequence limit keeps the reviewed
+evidence and answer tokens inside the masked training example on the local
+memory-constrained profile.
 
 ## Ornith 1.5 local default
 
