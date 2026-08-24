@@ -46,6 +46,7 @@ const IGNORED_DIRECTORIES = new Set([
   ".git",
   ".local",
   ".next",
+  ".next-e2e",
   ".open-next",
   ".sst",
   ".turbo",

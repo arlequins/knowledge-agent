@@ -16,6 +16,7 @@ const MAX_RESULTS_PER_DOCUMENT = 2;
 const GENERATED_SOURCE_SEGMENTS = [
   "/.cache/",
   "/.next/",
+  "/.next-",
   "/.turbo/",
   "/dist/",
   "/node_modules/",
@@ -62,6 +63,12 @@ export function queryTerms(query: string, limit?: number) {
     ["안전", "authorization"],
     ["공식", "official"],
     ["소스", "sources"],
+    ["레포", "readme"],
+    ["레포", "repository"],
+    ["저장소", "readme"],
+    ["저장소", "repository"],
+    ["목적", "template"],
+    ["목적", "purpose"],
     ["선택", "select"],
     ["마이그레이션", "migrations"],
   ] as const;
@@ -97,6 +104,20 @@ export function isUsableKnowledgeSource(label: string) {
   return !GENERATED_SOURCE_SEGMENTS.some((segment) =>
     normalized.includes(segment),
   );
+}
+
+export function repositoryOverviewScore(
+  query: string,
+  label: string,
+  content: string,
+) {
+  const terms = new Set(queryTerms(query));
+  const asksForRepositoryPurpose =
+    (terms.has("repository") || terms.has("readme")) &&
+    (terms.has("purpose") || terms.has("template"));
+  if (!asksForRepositoryPurpose || label.toLocaleLowerCase() !== "readme.md")
+    return 0;
+  return /^#\s+\S+/u.test(content.trimStart()) ? 2 : 0.35;
 }
 
 function citationLabel(label: string, sourceUri: string) {
@@ -187,7 +208,8 @@ export function createDatabaseKnowledgeSearch(
                 score:
                   cosine(queryEmbedding, row.embedding) +
                   keywordScore(query, row.label) * 1.25 +
-                  keywordScore(query, row.content) * 0.65,
+                  keywordScore(query, row.content) * 0.65 +
+                  repositoryOverviewScore(query, row.label, row.content),
               }))
               .filter((row) => row.score > 0.2)
               .sort((left, right) => right.score - left.score);

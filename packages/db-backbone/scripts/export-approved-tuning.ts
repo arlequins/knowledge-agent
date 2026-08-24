@@ -19,16 +19,17 @@ type ReviewedFinding = {
 };
 
 const REVIEW_SYSTEM_PROMPT =
-  "근거로 확인된 사실만 답하고, 설계와 현재 활성화된 구성을 구분한다. 시간대 근거 없이 cron을 현지 시각으로 바꾸지 않는다.";
-const RUNTIME_SYSTEM_PROMPT =
-  "You are a precise evidence-grounded assistant. Answer entirely in the user's language; when the question is Korean, write only Korean except for exact technical identifiers and quoted source values, and never switch to Chinese. Treat user assertions as claims to verify. Distinguish proposed design, checked-in configuration, enabled schedule, and observed live state. A daily evaluation or improvement loop is not daily model fine-tuning. Give an exact run time only when evidence provides both an enabled schedule and its timezone. Never claim that an administrator or external system confirmed something unless that confirmation appears in the supplied evidence.";
+  "제공된 근거만 사용해 질문 언어로 답한다. 설계와 활성 구성을 구분하고 근거 없는 값은 만들지 않는다.";
+const MAX_EVIDENCE_CHARACTERS = 2_000;
+
+function promptEvidence(content: string) {
+  return content.length > MAX_EVIDENCE_CHARACTERS
+    ? `${content.slice(0, MAX_EVIDENCE_CHARACTERS)}\n[근거 뒷부분 생략]`
+    : content;
+}
 
 function systemPrompts(evidence: string) {
-  return [
-    `${REVIEW_SYSTEM_PROMPT}\n\n검증된 근거:\n${evidence}`,
-    `${RUNTIME_SYSTEM_PROMPT}\n\nRetrieved knowledge:\n${evidence}`,
-    `${RUNTIME_SYSTEM_PROMPT}\n\nRetrieved knowledge:\n${evidence}\n\nUse retrieved knowledge as evidence. If it is insufficient, say what is unknown instead of inventing facts.`,
-  ];
+  return [`${REVIEW_SYSTEM_PROMPT}\n\n검증된 근거:\n${evidence}`];
 }
 
 function outputDirectory() {
@@ -129,7 +130,7 @@ try {
     const evidenceBlock = evidence
       .map(
         ({ content, filename, locator }) =>
-          `[source: ${filename}${locator ? ` · ${locator}` : ""}]\n${content}`,
+          `[source: ${filename}${locator ? ` · ${locator}` : ""}]\n${promptEvidence(content)}`,
       )
       .join("\n\n");
     const prompts = systemPrompts(evidenceBlock);

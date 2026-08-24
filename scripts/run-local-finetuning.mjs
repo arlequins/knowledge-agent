@@ -16,6 +16,8 @@ const baseModelSource =
   process.env.LOCAL_TUNING_BASE_MODEL ?? "ornith-ai/Ornith-1.5-9B-MLX-4bit";
 const baseModel = baseModelSource;
 const iterations = process.env.LOCAL_TUNING_ITERS ?? "40";
+const maximumSequenceLength = process.env.LOCAL_TUNING_MAX_SEQ_LENGTH ?? "768";
+const tunedLayers = process.env.LOCAL_TUNING_NUM_LAYERS ?? "2";
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -67,9 +69,9 @@ run(resolve(venvBin, "mlx_lm.lora"), [
   "--batch-size",
   "1",
   "--num-layers",
-  "8",
+  tunedLayers,
   "--max-seq-length",
-  "1024",
+  maximumSequenceLength,
   "--learning-rate",
   "1e-5",
   "--mask-prompt",
@@ -102,6 +104,9 @@ for (const example of manifest.splits.test) {
         "512",
         "--temp",
         "0.1",
+        ...(baseModel.toLowerCase().includes("ornith")
+          ? ["--chat-template-config", '{"enable_thinking":false}']
+          : []),
         "--verbose",
         "false",
       ],
