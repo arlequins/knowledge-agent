@@ -25,17 +25,21 @@ export function configureGoogleAuthEnv(source, { clientId, email }) {
     throw new Error("허용할 Google 이메일 주소가 올바르지 않습니다.");
   }
 
-  return [
-    ["OIDC_ISSUER_URL", "https://accounts.google.com"],
-    ["OIDC_AUDIENCE", normalizedClientId],
-    ["OIDC_ALLOWED_ALGORITHMS", "RS256"],
-    ["AUTH_PROVIDER", "google"],
-    ["AUTH_ALLOWED_EMAILS", normalizedEmail],
-    ["NEXT_PUBLIC_AUTH_PROVIDER", "google"],
-    ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", normalizedClientId],
-  ].reduce(
-    (configured, [key, value]) => setEnvValue(configured, key, value),
-    source,
+  let configured = source;
+  configured = setEnvValue(
+    configured,
+    "OIDC_ISSUER_URL",
+    "https://accounts.google.com",
+  );
+  configured = setEnvValue(configured, "OIDC_AUDIENCE", normalizedClientId);
+  configured = setEnvValue(configured, "OIDC_ALLOWED_ALGORITHMS", "RS256");
+  configured = setEnvValue(configured, "AUTH_PROVIDER", "google");
+  configured = setEnvValue(configured, "AUTH_ALLOWED_EMAILS", normalizedEmail);
+  configured = setEnvValue(configured, "NEXT_PUBLIC_AUTH_PROVIDER", "google");
+  return setEnvValue(
+    configured,
+    "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    normalizedClientId,
   );
 }
 

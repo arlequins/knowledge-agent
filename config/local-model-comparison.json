@@ -3,7 +3,7 @@
   "models": [
     {
       "id": "mlx-community/Qwen2.5-14B-Instruct-4bit",
-      "label": "qwen-current",
+      "label": "qwen-fallback",
       "temperature": 0.1
     },
     {
@@ -14,7 +14,7 @@
     },
     {
       "id": "ornith-ai/Ornith-1.5-9B-MLX-4bit",
-      "label": "ornith-coding",
+      "label": "ornith-current",
       "temperature": 0.6,
       "thinking": false,
       "repetitionPenalty": 1,

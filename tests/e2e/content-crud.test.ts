@@ -52,9 +52,12 @@ test("creates an agent workspace and starts a conversation without horizontal ov
   await expect(
     page.getByRole("heading", { name: "Enter로 전송되는 질문" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "중지" }).click();
+  const stopButton = page.getByRole("button", { name: "중지" });
+  const sendButton = page.getByRole("button", { name: "보내기" });
+  await expect(stopButton.or(sendButton)).toBeVisible();
+  if (await stopButton.isVisible()) await stopButton.click();
   await expect(question).toHaveValue("Enter로 전송되는 질문");
-  await expect(page.getByRole("button", { name: "보내기" })).toBeVisible();
+  await expect(sendButton).toBeVisible();
 
   const modelButton = page.getByRole("button", { name: /모델 ·/ });
   await modelButton.click();

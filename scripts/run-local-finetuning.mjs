@@ -13,8 +13,7 @@ const current = resolve(tuningRoot, "current");
 const candidate = resolve(tuningRoot, `.current-${runId}`);
 const venvBin = resolve(tuningRoot, "venv/bin");
 const baseModelSource =
-  process.env.LOCAL_TUNING_BASE_MODEL ??
-  "mlx-community/Qwen2.5-14B-Instruct-4bit";
+  process.env.LOCAL_TUNING_BASE_MODEL ?? "ornith-ai/Ornith-1.5-9B-MLX-4bit";
 const baseModel = baseModelSource;
 const iterations = process.env.LOCAL_TUNING_ITERS ?? "40";
 

@@ -72,7 +72,7 @@ function streamErrorMessage(error: unknown): string {
     message === "Local model request failed" ||
     message === "Local model completion is not configured"
   ) {
-    return "로컬 Ollama 응답을 받지 못했습니다. Ollama 실행 상태와 `.env.localhost`의 모델 설정을 확인한 뒤 다시 보내세요.";
+    return "로컬 모델에서 응답을 받지 못했습니다. MLX 또는 Ollama 실행 상태와 `.env.localhost`의 모델 설정을 확인한 뒤 다시 보내세요.";
   }
   if (message === "응답 스트림을 시작하지 못했습니다.") {
     return "에이전트 API에 연결하지 못했습니다. 로컬 개발 서버가 실행 중인지 확인한 뒤 다시 보내세요.";

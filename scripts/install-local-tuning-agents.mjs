@@ -23,11 +23,9 @@ const tuningPlist = resolve(launchAgents, `${tuningLabel}.plist`);
 const python = resolve(tuningRoot, "venv/bin/python");
 const mlxServer = resolve(root, "scripts/mlx-reviewed-server.py");
 const baseModel =
-  process.env.LOCAL_TUNING_BASE_MODEL ??
-  "mlx-community/Qwen2.5-14B-Instruct-4bit";
-const pnpm = spawnSync("command", ["-v", "pnpm"], {
+  process.env.LOCAL_TUNING_BASE_MODEL ?? "ornith-ai/Ornith-1.5-9B-MLX-4bit";
+const pnpm = spawnSync("which", ["pnpm"], {
   encoding: "utf8",
-  shell: true,
 }).stdout.trim();
 if (!pnpm) throw new Error("pnpm was not found");
 const dailyCommand = `cd '${root.replaceAll("'", "'\\''")}' && '${pnpm}' agent:tune:daily`;

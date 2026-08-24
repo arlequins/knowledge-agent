@@ -112,7 +112,7 @@ function providerLabel(provider: ModelProviderId) {
   if (provider === "ollama") return "로컬 Ollama";
   if (provider === "openai") return "OpenAI";
   if (provider === "gemini") return "Google Gemini";
-  if (provider === "mlx") return "로컬 MLX LoRA";
+  if (provider === "mlx") return "로컬 MLX";
   return "Amazon Bedrock";
 }
 

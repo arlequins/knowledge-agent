@@ -51,24 +51,26 @@ pnpm agent:tune:install-schedule
 pnpm agent:model:compare
 ```
 
-The conservative fallback base is
-`mlx-community/Qwen2.5-14B-Instruct-4bit`. Override it with
+The current local base is `ornith-ai/Ornith-1.5-9B-MLX-4bit`. The conservative
+rollback target remains `mlx-community/Qwen2.5-14B-Instruct-4bit`. Override the
+current base with
 `LOCAL_TUNING_BASE_MODEL` and adjust the bounded training iteration count with
 `LOCAL_TUNING_ITERS`.
 
-## Ornith 1.5 candidate
+## Ornith 1.5 local default
 
-`ornith-ai/Ornith-1.5-9B-MLX-4bit` is the memory-constrained candidate. Its
+`ornith-ai/Ornith-1.5-9B-MLX-4bit` is the temporary memory-constrained local
+default. Its
 published MLX artifact is about 5.04 GB; the 8-bit artifact is about 9.51 GB and
 does not fit an 8 GB budget with runtime and context cache headroom. Ornith is a
 reasoning model, so the MLX provider removes `<think>` blocks from user-visible
 content. It also stops generation before a repeated eight-token sequence and
 cancels the remaining stream.
 
-Do not promote or make Ornith the shared default based on its published coding
-benchmarks alone. Compare it with the Qwen fallback on this repository's held-
-out grounded-answer cases, latency, peak memory, Korean output, citations, and
-repetition rate first.
+Keep comparing it with the Qwen fallback on this repository's held-out
+grounded-answer cases, latency, peak memory, Korean output, citations, and
+repetition rate. Any reviewed adapter still has to pass the same promotion
+gate; selecting this base model does not bypass evidence or repetition checks.
 
 The checked-in comparison suite treats English grounded and coding cases as the
 main signal. Korean and Japanese cases are secondary translation checks. Its

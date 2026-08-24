@@ -10,6 +10,13 @@ if (config.version !== 1) throw new Error("Unsupported comparison config");
 const baseUrl = (
   process.env.MLX_BASE_URL ?? "http://127.0.0.1:8000/v1"
 ).replace(/\/$/, "");
+const modelServerUrl = new URL(baseUrl);
+if (
+  modelServerUrl.protocol !== "http:" ||
+  (modelServerUrl.hostname !== "127.0.0.1" &&
+    modelServerUrl.hostname !== "localhost")
+)
+  throw new Error("MLX_BASE_URL must target a loopback HTTP endpoint");
 const outputPath = resolve(root, ".local/evaluations/model-comparison.json");
 const requestedProfiles = new Set(process.argv.slice(2));
 const models = requestedProfiles.size
@@ -76,7 +83,10 @@ for (const model of models) {
     };
     if (model.thinking !== undefined)
       request.chat_template_kwargs = { enable_thinking: model.thinking };
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    // Prompts from the checked-in evaluation config are intentionally sent only
+    // to the loopback-only MLX endpoint validated above.
+    // lgtm[js/file-access-to-http]
+    const response = await fetch(`${modelServerUrl}/chat/completions`, {
       body: JSON.stringify(request),
       headers: { "content-type": "application/json" },
       method: "POST",
