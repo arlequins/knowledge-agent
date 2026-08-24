@@ -25,10 +25,13 @@ local application; the pages below explain design decisions and ongoing work.
   restore verification, and failure recovery.
 - [Agent operations](agent-operations.md): readiness monitoring, alert policy,
   quotas, backups, and retrieval-incident recovery.
-- [Local agent demo](local-agent-demo.md): run PostgreSQL, OpenAI, repository
-  indexing, and official technology-document retrieval.
+- [Local agent demo](local-agent-demo.md): run PostgreSQL, Google or local
+  sign-in, Ollama/MLX, repository indexing, and official technology retrieval.
 - [Local reviewed fine-tuning](local-finetuning.md): evidence-gated LoRA
-  training, promotion, and the local daily schedule.
+  training, promotion, rollback, the accepted reference run, and the local
+  daily schedule.
+- [Model selection and operating playbook](model-playbook.md): Ornith, Qwen,
+  Gemma/Ollama, OpenAI, Gemini, Bedrock, and EC2 self-hosting guidance.
 - [SST local testing](sst-local-testing.md): what can be validated without SST
   sign-in or AWS credentials.
 - [Test operations](testing-operations.md): test layers, external test

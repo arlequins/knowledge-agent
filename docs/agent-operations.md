@@ -9,6 +9,21 @@ pnpm agent:readiness --api-url https://api.example.com
 The check validates process liveness and S3-backed readiness. Do not use liveness
 alone to declare the service healthy.
 
+For the local PostgreSQL profile, verify the complete chain:
+
+```bash
+curl http://localhost:5000/health/live
+curl http://localhost:5000/health/ready
+curl http://127.0.0.1:8000/v1/models   # when MLX is selected
+curl http://127.0.0.1:11434/api/tags   # when Ollama is selected
+pnpm agent:readiness --api-url http://localhost:5000
+```
+
+`pnpm dev:next` starts the web application and its package dependencies; it
+does not guarantee that the API is listening on port 5000. Prefer
+`pnpm dev:local` for a complete first run. If the UI remains at
+`로그인 확인 중…`, check API readiness before debugging Google authentication.
+
 ## Alert policy
 
 | Signal | Warning | Urgent action |
@@ -18,6 +33,7 @@ alone to declare the service healthy.
 | Evaluation or indexing | Any failed run | Repeated failures; pause activation and inspect audit events |
 | Workspace usage | 80% of product quota | 100%; reject new writes with a clear product error |
 | Release checksum | Any mismatch | Stop release activation and restore a known-good head |
+| Reviewed adapter | Any held-out failure or repeated output | Keep the current adapter; roll back before further training |
 
 ## Recovery
 
@@ -30,3 +46,7 @@ alone to declare the service healthy.
 Do not overwrite a live state object without an ETag precondition. S3 Versioning
 inside one bucket is not an independent backup; add a separate backup bucket or
 cross-region replication only when recovery objectives justify the cost.
+
+Model rollback and daily-learning recovery are documented separately in
+[Reviewed feedback and local fine-tuning](local-finetuning.md). Provider and
+capacity decisions belong in the [model playbook](model-playbook.md).

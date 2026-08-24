@@ -50,3 +50,16 @@ default and does not publish a package to npm.
 Release PRs follow the same review and branch-protection requirements as other
 changes. Do not manually edit the generated version or changelog unless the
 release PR is being corrected deliberately.
+
+## Learning automation is separate
+
+Release automation and model-improvement automation do not share an approval
+boundary. Release Please never reads private feedback or adapters. The optional
+macOS daily tuning job reads only locally approved, evidence-backed
+investigations and writes ignored local artifacts. A successful training run
+does not create a Git tag or deploy an application release.
+
+Conversely, merging a software release does not prove a local adapter was
+trained, promoted, or loaded. Operators must verify the installed schedule,
+promotion report, model-process reload, and application-level RAG replay as
+documented in [Reviewed feedback and local fine-tuning](local-finetuning.md).

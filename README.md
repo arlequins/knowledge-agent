@@ -11,10 +11,12 @@ The same conversation and knowledge core serves three delivery surfaces:
 - an OAuth-protected remote MCP server.
 
 The first runnable profile is intentionally local: PostgreSQL stores
-conversations and indexed knowledge, while OpenAI provides chat completions and
-embeddings. Real documents, source snapshots, database exports, evaluation
-questions, and API keys belong in ignored local paths and are never part of the
-public template.
+conversations and indexed knowledge, Ollama provides the portable chat and
+embedding baseline, and an optional Apple-Silicon MLX profile runs reviewed
+Ornith LoRA adapters. OpenAI, Gemini, and Amazon Bedrock stay behind the same
+provider boundary. Real documents, source snapshots, database exports,
+evaluation questions, credentials, and adapters belong in ignored local paths
+and are never part of the public template.
 
 ## Design priorities
 
@@ -28,8 +30,9 @@ public template.
 - Use PostgreSQL full-text and vector retrieval; OpenSearch is not required.
 - Read changing business data through allowlisted, read-only tRPC tools rather
   than generated SQL or page scraping.
-- Improve quality through replayable daily evaluations, not real-time
-  fine-tuning.
+- Improve quality through replayable evaluations and source-reviewed promotion
+  gates. Optional local LoRA training is scheduled, never real-time, and raw
+  reactions are not training facts.
 
 ## Stack
 
@@ -39,8 +42,8 @@ public template.
 | Web | Next.js App Router, React, Tailwind CSS |
 | API | Hono and tRPC, local Node.js server, optional AWS Lambda |
 | Local persistence | PostgreSQL with Drizzle migrations |
-| Model boundary | Provider-neutral agent core with OpenAI, Bedrock, and Ollama adapters |
-| Authentication | Local OIDC mock; Google-compatible OIDC configuration |
+| Model boundary | Provider-neutral core with MLX, Ollama, OpenAI, Gemini, and Bedrock adapters |
+| Authentication | Google local allowlist or local OIDC mock; multi-provider OIDC for deployment |
 | Testing | Vitest, PostgreSQL integration tests, Playwright, accessibility checks |
 
 ## Local pilot
@@ -91,6 +94,18 @@ The official documentation catalog in `config/official-knowledge-sources.json`
 contains only public canonical URLs and host allowlists; downloaded text and
 embeddings stay in the local database.
 
+Apple-Silicon operators can add the reviewed MLX/Ornith profile after the
+portable baseline works:
+
+```bash
+pnpm agent:tune:setup
+pnpm agent:tune:install-schedule
+```
+
+Read the [fine-tuning runbook](docs/local-finetuning.md) before approving data
+or promoting an adapter. For model-specific Mac, EC2, and Bedrock guidance, use
+the [model playbook](docs/model-playbook.md).
+
 ## Useful commands
 
 | Command | Purpose |
@@ -98,6 +113,9 @@ embeddings stay in the local database.
 | `pnpm dev:local` | Start the local database, identity provider, API, and web app. |
 | `pnpm agent:setup` | Create `.env.localhost` without overwriting existing values. |
 | `pnpm auth:google:local` | Configure real Google login and an exact local email allowlist. |
+| `pnpm agent:evaluate` | Replay the application-level grounded-answer suite. |
+| `pnpm agent:model:compare` | Compare checked-in local MLX model profiles. |
+| `pnpm agent:tune:daily` | Train and gate a candidate from approved evidence-backed feedback. |
 | `pnpm knowledge:index` | Index an approved document or source tree. |
 | `pnpm knowledge:bootstrap` | Create the repeatable local test workspace. |
 | `pnpm knowledge:sync-official` | Index allowlisted official stack documentation. |

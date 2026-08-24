@@ -158,11 +158,14 @@ the query or authorization scope.
 
 ## Model adapters and routing
 
-The domain depends on `ChatModelPort`, not a provider SDK. Planned adapters are:
+The domain depends on a model-provider port, not a provider SDK. Implemented
+adapters are:
 
-- Amazon Bedrock Converse for production;
-- Anthropic Messages for initial development or approved fallback; and
-- Gemini for centrally funded or user-provided API credentials.
+- MLX for loopback-only Apple-Silicon inference and reviewed LoRA adapters;
+- Ollama for portable loopback chat and embeddings;
+- OpenAI Responses for server or encrypted user-provided credentials;
+- Gemini Generate Content for encrypted user-provided credentials; and
+- Amazon Bedrock Converse for the AWS production profile.
 
 Routing profiles select fast, balanced, or deep models based on the question,
 retrieval confidence, conflicting evidence, previous failed answers, workspace
@@ -188,7 +191,16 @@ provider usage, and cost are replayable. A daily batch job:
 6. promotes a versioned configuration after the configured approval gate.
 
 User reactions are signals, not facts. Real-time fine-tuning is outside the
-initial scope.
+scope. The optional local MLX extension may run a separate scheduled LoRA job
+only from owner-approved, evidence-backed investigations. Its dataset,
+held-out evaluation, promotion, reload, and rollback boundaries are documented
+in [Reviewed feedback and local fine-tuning](local-finetuning.md).
+
+For intermittent production traffic, the default architecture recommendation
+is Bedrock on-demand. EC2 self-hosting is a separate NVIDIA runtime and is
+qualified only when exact open weights, sustained utilization, or isolation
+requirements justify GPU operations. See the [model playbook](model-playbook.md).
+
 ## Clean architecture and dependency direction
 
 This template keeps policy independent from delivery frameworks and providers.

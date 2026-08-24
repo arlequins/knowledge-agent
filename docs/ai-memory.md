@@ -38,6 +38,9 @@ This page is a durable context note for AI agents working in this repository.
 - `packages/types`: shared type definitions.
 - `packages/ui`: shared React UI.
 - `packages/auth`: OIDC discovery and JWT access-token validation for API sessions.
+- `packages/agent-core`: provider-neutral conversation, evidence, and streaming ports.
+- `packages/agent-mlx`, `packages/agent-ollama`, `packages/agent-openai`,
+  `packages/agent-gemini`, `packages/agent-bedrock`: model-provider adapters.
 - `tooling/*`: shared repository tooling packages.
 
 ## Command Memory
@@ -61,6 +64,9 @@ This page is a durable context note for AI agents working in this repository.
 | `pnpm db:start` / `pnpm db:stop`  | Start or stop the local PostgreSQL container.             |
 | `pnpm db:setup`                   | Apply migrations and then pending seeds.                 |
 | `pnpm db:check`                   | Validate committed Drizzle migration metadata.           |
+| `pnpm agent:evaluate`             | Replay the application-level grounded-answer suite.      |
+| `pnpm agent:model:compare`        | Compare local MLX profiles with checked-in cases.        |
+| `pnpm agent:tune:daily`           | Train and gate a reviewed local LoRA candidate.          |
 | `pnpm turbo gen`                  | Scaffold an application, package, or tRPC domain.        |
 
 ## Coding Memory
@@ -85,6 +91,10 @@ This page is a durable context note for AI agents working in this repository.
 - Browser authentication uses Authorization Code + PKCE; APIs validate JWT access tokens against OIDC discovery and JWKS metadata.
 - `@arlequins/oidc-mock` is development-only and must not be deployed as a production identity provider.
 - E2E tests own an isolated PostgreSQL container and must clean it up after the run.
+- Feedback is not training truth. LoRA export requires approved active evidence,
+  disjoint splits, held-out gates, explicit model reload, and tested rollback.
+- The canonical learning and provider guidance is in `docs/local-finetuning.md`
+  and `docs/model-playbook.md`; keep README summaries short and link there.
 
 ## Review Memory
 
