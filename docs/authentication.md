@@ -54,6 +54,30 @@ The complete local configuration is in `.env.localhost.example`. The Playwright 
 
 The API accepts only asymmetric signing algorithms: RS256/384/512, PS256/384/512, ES256/384/512, and EdDSA. Keep the allowlist as narrow as the provider permits.
 
+## Local Google mode
+
+The runnable knowledge-agent profile can replace the OIDC mock with Google
+Identity Services while keeping API-side token verification and application
+authorization separate. Create an OAuth 2.0 client of type **Web application**
+and add exactly `http://localhost:3000` to its authorized JavaScript origins.
+Do not create or store a browser client secret.
+
+Configure the public client ID and exact allowed email in the ignored local
+environment file:
+
+```bash
+pnpm auth:google:local -- <client-id>.apps.googleusercontent.com owner@example.com
+```
+
+The browser credential remains in the current tab session. The API verifies
+Google's signature, issuer, audience, expiry, `email_verified` claim, and exact
+email allowlist before provisioning or loading application data. A successful
+Google popup alone is not authorization to a workspace.
+
+Keep the single-account allowlist as a pilot control. A multi-user deployment
+must replace it with an explicit membership/invitation policy and tests; never
+expand access by accepting an entire email domain implicitly.
+
 ## Validation
 
 For every bearer token, the API validates:

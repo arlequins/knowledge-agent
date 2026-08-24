@@ -67,6 +67,23 @@ its related code, tests, environment variables, and documentation.
 - [x] Optional OpenTelemetry export, component testing, Storybook, and an
   S3-backed application cache are available as reusable building blocks.
 
+## Evidence and Learning Safety
+
+- [x] Feedback is stored per authenticated user and workspace but remains a
+  signal until source review.
+- [x] Approved tuning examples require active evidence chunks, an exact
+  resolution, required terms, and forbidden claims.
+- [x] Distinct examples are split deterministically into non-overlapping train,
+  validation, and held-out test data.
+- [x] Promotion rejects repetition, unsupported technical claims, and language
+  regressions; failed adapters do not replace the current pointer.
+- [x] MLX output strips tagged reasoning and stops before a repeated
+  eight-token sequence.
+- [x] Private datasets, adapters, reports, and personal provider keys remain
+  outside the public repository.
+- [ ] A production owner-review UI/API and automatic post-promotion model reload
+  remain application-specific work.
+
 ## Adaptation Review
 
 Run `pnpm template:doctor` after initialization and whenever local setup changes.

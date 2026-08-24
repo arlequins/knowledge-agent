@@ -16,7 +16,8 @@
   Fumadocs, SST, Turborepo, pnpm, and Hono documentation.
 - Retrieval through PostgreSQL keyword and embedding search, with optional S3
   Vectors for the AWS profile.
-- OpenAI local-pilot and Bedrock production adapters with grounded streaming
+- Portable Ollama local-pilot, optional MLX/OpenAI profiles, and a Bedrock
+  production adapter with grounded streaming
   answers.
 
 ## Phase 2: embedded chat and MCP
@@ -36,6 +37,11 @@
 
 - Daily replay, verified gold cases, provider routing, cost budgets, repetition
   checks, and guarded configuration promotion.
+- Optional reviewed LoRA candidates with disjoint train/validation/test data,
+  evidence-backed promotion, explicit model reload, and tested rollback.
+- Bedrock-on-demand as the initial intermittent AWS traffic profile; qualify an
+  EC2/SageMaker open-model runtime only when exact weights or sustained
+  utilization justify GPU operations.
 - Incremental indexing and operational limits for larger monorepos.
 
 ## Phase 5: legacy analyzers

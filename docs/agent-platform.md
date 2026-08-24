@@ -19,10 +19,10 @@ question
 
 | Port | Local pilot | AWS profile |
 | --- | --- | --- |
-| Model provider | OpenAI Responses API; optional Ollama fallback | Amazon Bedrock or another approved adapter |
+| Model provider | Ollama baseline; optional reviewed MLX, OpenAI, Gemini | Amazon Bedrock or another approved adapter |
 | Persistence | PostgreSQL in Docker | Aurora PostgreSQL or the optional reviewed S3 profile |
 | Retrieval | PostgreSQL metadata, keyword search, and locally stored embeddings | PostgreSQL plus optional S3 Vectors |
-| Authentication | Included OIDC mock | Google-compatible OIDC provider |
+| Authentication | Google single-account allowlist or included OIDC mock | Google-compatible OIDC provider |
 
 The API streams model output over HTTP. tRPC remains the typed transport for
 workspaces, conversations, documents, memory, feedback, and evaluation.
@@ -57,7 +57,14 @@ Feedback kinds are `helpful`, `incorrect`, `missing`, and
 `needs-investigation`. They are signals, not facts. Reviewed retrieval cases
 record the expected evidence chunks, and scheduled evaluations compare citation
 recall, answer quality, latency, and cost before a prompt or routing change is
-promoted. The initial profile does not perform real-time fine-tuning.
+promoted. The application never performs real-time fine-tuning.
+
+The optional Apple-Silicon profile can export owner-approved investigations to
+disjoint train, validation, and test data, train an MLX LoRA candidate, and
+promote it only after held-out evidence and repetition gates pass. That process
+is cumulative, scheduled, local, and separate from ordinary evaluation. A
+promoted adapter still needs a model-process reload and an application-level
+RAG replay. See [Reviewed feedback and local fine-tuning](local-finetuning.md).
 
 Owners can expand an answer's citations, review the evidence, and save that
 question plus the expected chunks as an evaluation case. The **Evaluation
@@ -76,13 +83,12 @@ questions. Full answers and timings are written to ignored
 committed. A model or retrieval change passes only when it meets the configured
 pass-rate gate.
 
-The current local default is `knowledge-agent-gemma3:12b`, an Ollama profile
-built from `gemma3:12b` with an 8K context window and bounded output. It avoids
-thinking-mode compatibility differences across Ollama versions while remaining
-practical for a quality-first single-user local demo. The adapter also removes
-tagged reasoning if a future model emits it. Treat the six public cases as a
-local quality gate, not a general model ranking, and re-run them on the target
-machine before changing the default.
+The checked-in portable default is `knowledge-agent-gemma3:12b`, an Ollama
+profile built from `gemma3:12b` with an 8K context window and bounded output.
+The current Apple-Silicon reviewed profile uses
+`ornith-ai/Ornith-1.5-9B-MLX-4bit` for chat while retaining Ollama embeddings.
+Treat public cases as local quality gates, not a general model ranking, and
+re-run them on the target machine before changing the default.
 
 The reference local run on 2026-08-22 passed all 6 public cases. Individual
 answers completed in roughly 19-64 seconds on the test machine.
@@ -93,6 +99,9 @@ The local OpenAI adapter uses the Responses API with provider-side response
 storage disabled. Application history remains in PostgreSQL. Production model
 selection is an adapter and policy decision: Bedrock, OpenAI, Anthropic, Gemini,
 and Ollama do not leak into the agent domain.
+
+For model-specific settings and the EC2-versus-Bedrock production decision, see
+[Model selection and operating playbook](model-playbook.md).
 
 AWS deployment is optional and runs through protected GitHub Actions with OIDC.
 Long-lived AWS credentials are not a supported repository configuration.
