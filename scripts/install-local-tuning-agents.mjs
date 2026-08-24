@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
@@ -10,7 +10,9 @@ const logs = resolve(tuningRoot, "logs");
 const launchAgents = resolve(homedir(), "Library/LaunchAgents");
 const userId = process.getuid?.();
 if (userId === undefined) throw new Error("A macOS user session is required");
-await readFile(resolve(current, "adapter_config.json"), "utf8");
+const hasReviewedAdapter = await access(resolve(current, "adapter_config.json"))
+  .then(() => true)
+  .catch(() => false);
 await mkdir(logs, { recursive: true });
 await mkdir(launchAgents, { recursive: true });
 
@@ -29,6 +31,9 @@ const pnpm = spawnSync("command", ["-v", "pnpm"], {
 }).stdout.trim();
 if (!pnpm) throw new Error("pnpm was not found");
 const dailyCommand = `cd '${root.replaceAll("'", "'\\''")}' && '${pnpm}' agent:tune:daily`;
+const adapterArguments = hasReviewedAdapter
+  ? `<string>--adapter-path</string><string>${current}</string>`
+  : "";
 
 function plist(label, body) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -44,7 +49,7 @@ await writeFile(
   serverPlist,
   plist(
     serverLabel,
-    `<key>ProgramArguments</key><array><string>${python}</string><string>${mlxServer}</string><string>--model</string><string>${baseModel}</string><string>--adapter-path</string><string>${current}</string><string>--port</string><string>8000</string></array>
+    `<key>ProgramArguments</key><array><string>${python}</string><string>${mlxServer}</string><string>--model</string><string>${baseModel}</string>${adapterArguments}<string>--port</string><string>8000</string></array>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
 <key>StandardOutPath</key><string>${resolve(logs, "mlx-server.log")}</string>
 <key>StandardErrorPath</key><string>${resolve(logs, "mlx-server.error.log")}</string>`,
@@ -97,4 +102,6 @@ function setEnvironment(name, value) {
 setEnvironment("MLX_BASE_URL", "http://127.0.0.1:8000/v1");
 setEnvironment("MLX_MODEL", baseModel);
 await writeFile(environmentPath, environment, { mode: 0o600 });
-console.log("Installed daily 03:00 local tuning and the reviewed MLX server.");
+console.log(
+  `Installed daily 03:00 local tuning and the ${hasReviewedAdapter ? "reviewed adapter" : "base-model fallback"} MLX server.`,
+);

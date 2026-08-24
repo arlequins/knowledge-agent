@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import { closeDatabasePool, db } from "../src/client";
 import {
   Conversation,
@@ -10,6 +10,7 @@ import {
   Investigation,
   Message,
 } from "../src/schema";
+import { splitDistinctTuningExamples } from "./tuning-dataset";
 
 type ReviewedFinding = {
   evidenceChunkIds: string[];
@@ -22,11 +23,11 @@ const REVIEW_SYSTEM_PROMPT =
 const RUNTIME_SYSTEM_PROMPT =
   "You are a precise evidence-grounded assistant. Answer entirely in the user's language; when the question is Korean, write only Korean except for exact technical identifiers and quoted source values, and never switch to Chinese. Treat user assertions as claims to verify. Distinguish proposed design, checked-in configuration, enabled schedule, and observed live state. A daily evaluation or improvement loop is not daily model fine-tuning. Give an exact run time only when evidence provides both an enabled schedule and its timezone. Never claim that an administrator or external system confirmed something unless that confirmation appears in the supplied evidence.";
 
-function systemPrompts(resolution: string) {
+function systemPrompts(evidence: string) {
   return [
-    REVIEW_SYSTEM_PROMPT,
-    RUNTIME_SYSTEM_PROMPT,
-    `${RUNTIME_SYSTEM_PROMPT}\n\nRetrieved knowledge:\n[source: approved investigation]\n${resolution}\n\nUse retrieved knowledge as evidence. If it is insufficient, say what is unknown instead of inventing facts.`,
+    `${REVIEW_SYSTEM_PROMPT}\n\n검증된 근거:\n${evidence}`,
+    `${RUNTIME_SYSTEM_PROMPT}\n\nRetrieved knowledge:\n${evidence}`,
+    `${RUNTIME_SYSTEM_PROMPT}\n\nRetrieved knowledge:\n${evidence}\n\nUse retrieved knowledge as evidence. If it is insufficient, say what is unknown instead of inventing facts.`,
   ];
 }
 
@@ -75,7 +76,11 @@ try {
 
   const examples: Array<{
     answer: string;
-    evidence: Array<{ filename: string; locator: string | null }>;
+    evidence: Array<{
+      content: string;
+      filename: string;
+      locator: string | null;
+    }>;
     feedbackId: string;
     forbiddenTerms: string[];
     investigationId: string;
@@ -102,6 +107,7 @@ try {
     if (!question?.content.trim()) continue;
     const evidence = await db
       .select({
+        content: DocumentChunk.content,
         filename: Document.filename,
         id: DocumentChunk.id,
         locator: DocumentChunk.locator,
@@ -112,6 +118,7 @@ try {
         and(
           inArray(DocumentChunk.id, finding.evidenceChunkIds),
           eq(Document.status, "completed"),
+          isNull(Document.deletedAt),
         ),
       );
     if (evidence.length !== new Set(finding.evidenceChunkIds).size)
@@ -119,10 +126,17 @@ try {
         `Approved investigation ${row.investigationId} references missing evidence`,
       );
     const answer = row.resolution.trim();
-    const prompts = systemPrompts(answer);
+    const evidenceBlock = evidence
+      .map(
+        ({ content, filename, locator }) =>
+          `[source: ${filename}${locator ? ` · ${locator}` : ""}]\n${content}`,
+      )
+      .join("\n\n");
+    const prompts = systemPrompts(evidenceBlock);
     examples.push({
       answer,
-      evidence: evidence.map(({ filename, locator }) => ({
+      evidence: evidence.map(({ content, filename, locator }) => ({
+        content,
         filename,
         locator,
       })),
@@ -146,29 +160,47 @@ try {
     throw new Error("No approved, evidence-backed tuning examples were found");
 
   await mkdir(output, { recursive: true });
-  const trainingRows = examples.flatMap(({ answer, question, systemPrompts }) =>
-    systemPrompts.map((systemPrompt) =>
-      JSON.stringify({
-        messages: [
-          { content: systemPrompt, role: "system" },
-          { content: question, role: "user" },
-          { content: answer, role: "assistant" },
-        ],
-      }),
-    ),
-  );
-  const data = `${trainingRows.join("\n")}\n`;
+  const splits = splitDistinctTuningExamples(examples);
+  const rows = (split: typeof examples) =>
+    split.flatMap(({ answer, question, systemPrompts }) =>
+      systemPrompts.map((systemPrompt) =>
+        JSON.stringify({
+          messages: [
+            { content: systemPrompt, role: "system" },
+            { content: question, role: "user" },
+            { content: answer, role: "assistant" },
+          ],
+        }),
+      ),
+    );
+  const data = (split: typeof examples) => `${rows(split).join("\n")}\n`;
   await Promise.all([
-    writeFile(resolve(output, "train.jsonl"), data, { mode: 0o600 }),
-    writeFile(resolve(output, "valid.jsonl"), data, { mode: 0o600 }),
-    writeFile(resolve(output, "test.jsonl"), data, { mode: 0o600 }),
+    writeFile(resolve(output, "train.jsonl"), data(splits.train), {
+      mode: 0o600,
+    }),
+    writeFile(resolve(output, "valid.jsonl"), data(splits.valid), {
+      mode: 0o600,
+    }),
+    writeFile(resolve(output, "test.jsonl"), data(splits.test), {
+      mode: 0o600,
+    }),
     writeFile(
       resolve(output, "manifest.json"),
-      `${JSON.stringify({ examples, exportedAt: new Date().toISOString(), version: 1 }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          splits,
+          version: 2,
+        },
+        null,
+        2,
+      )}\n`,
       { mode: 0o600 },
     ),
   ]);
-  console.log(`Exported ${examples.length} approved tuning example(s).`);
+  console.log(
+    `Exported ${examples.length} distinct approved tuning examples (${splits.train.length} train, ${splits.valid.length} validation, ${splits.test.length} test).`,
+  );
 } finally {
   await closeDatabasePool();
 }

@@ -2,6 +2,7 @@ import type {
   ModelProviderPort,
   StreamTextRequest,
 } from "@arlequins/agent-core";
+import { StreamingOutputGuard } from "./output-guard";
 
 export type MlxProviderOptions = {
   baseUrl: string;
@@ -26,6 +27,7 @@ async function* events(body: ReadableStream<Uint8Array>) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffered = "";
+  let finished = false;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -41,9 +43,13 @@ async function* events(body: ReadableStream<Uint8Array>) {
           error?: { message?: unknown };
         };
       }
-      if (done) break;
+      if (done) {
+        finished = true;
+        break;
+      }
     }
   } finally {
+    if (!finished) await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
 }
@@ -55,19 +61,23 @@ export function createMlxModelProvider(
   if (!configured.model) throw new Error("MLX_MODEL is required");
   return {
     async *streamText(input: StreamTextRequest) {
+      const ornith = configured.model.toLowerCase().includes("ornith");
       const response = await configured.fetch(
         `${configured.baseUrl}/chat/completions`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            max_tokens: 512,
+            chat_template_kwargs: { enable_thinking: false },
+            max_tokens: 384,
             messages: input.messages,
             model: configured.model,
-            repetition_context_size: 128,
-            repetition_penalty: 1.12,
+            repetition_context_size: 512,
+            repetition_penalty: ornith ? 1 : 1.18,
             stream: true,
-            temperature: 0.1,
+            temperature: ornith ? 0.6 : 0.1,
+            top_k: ornith ? 20 : undefined,
+            top_p: ornith ? 0.95 : undefined,
           }),
           signal: input.signal
             ? AbortSignal.any([
@@ -80,12 +90,18 @@ export function createMlxModelProvider(
       if (!response.ok)
         throw new Error(`MLX request failed (${response.status})`);
       if (!response.body) throw new Error("MLX returned an empty response");
+      const output = new StreamingOutputGuard();
       for await (const event of events(response.body)) {
         if (typeof event.error?.message === "string")
           throw new Error("MLX response generation failed");
         const content = event.choices?.[0]?.delta?.content;
-        if (typeof content === "string" && content) yield content;
+        if (typeof content !== "string" || !content) continue;
+        const visible = output.push(content);
+        if (visible) yield visible;
+        if (output.stopped) break;
       }
+      const tail = output.flush();
+      if (tail) yield tail;
     },
   };
 }

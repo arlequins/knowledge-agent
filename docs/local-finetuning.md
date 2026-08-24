@@ -9,16 +9,22 @@ candidate. Raw reactions and comments are never training facts by themselves.
 2. An owner verifies the correction against indexed source chunks.
 3. The investigation is marked `approved` with an exact resolution,
    `evidenceChunkIds`, required answer terms, and forbidden claims.
-4. `pnpm agent:tune:daily` exports only those approved investigations to a
-   private `.local/tuning` dataset and trains a QLoRA adapter with MLX-LM.
-5. The candidate must answer every approved probe under the short review
-   prompt, the application-style prompt, and an evidence-bearing prompt. Every
-   variant must contain all required terms, omit forbidden claims, and avoid an
-   unexpected language switch. A failed candidate is retained for diagnosis
-   but is not promoted.
+4. `pnpm agent:tune:daily` requires at least six approved investigations with
+   distinct normalized questions and answers. It makes deterministic,
+   non-overlapping train, validation, and test splits before training.
+5. The candidate is evaluated only against the held-out test split. Its system
+   prompts contain the cited source text, never the expected resolution. Every
+   probe must contain all required terms, omit forbidden claims, avoid an
+   unexpected language switch, avoid repeated sentences and n-grams, and make
+   no technical claim absent from the approved answer or evidence. A failed
+   candidate is retained for diagnosis but is not promoted.
 6. Only a passing versioned adapter becomes the new `.local/tuning/current`
    pointer. The base model stays immutable, avoiding lossy re-quantization when
    a LoRA adapter is fused back into a 4-bit model.
+
+When no reviewed adapter exists, the server starts the base model without an
+adapter. Rejected adapters belong under `.local/tuning/rejected` for audit and
+must never remain behind the `current` pointer.
 
 The training dataset, adapters, answers, and reports stay under
 ignored `.local/tuning`; they are not committed to the public repository.
@@ -42,8 +48,32 @@ promoted MLX model.
 pnpm agent:tune:setup
 pnpm agent:tune:daily
 pnpm agent:tune:install-schedule
+pnpm agent:model:compare
 ```
 
-The default local base is `mlx-community/Qwen2.5-14B-Instruct-4bit`. Override it
-with `LOCAL_TUNING_BASE_MODEL` and adjust the bounded training iteration count
-with `LOCAL_TUNING_ITERS`.
+The conservative fallback base is
+`mlx-community/Qwen2.5-14B-Instruct-4bit`. Override it with
+`LOCAL_TUNING_BASE_MODEL` and adjust the bounded training iteration count with
+`LOCAL_TUNING_ITERS`.
+
+## Ornith 1.5 candidate
+
+`ornith-ai/Ornith-1.5-9B-MLX-4bit` is the memory-constrained candidate. Its
+published MLX artifact is about 5.04 GB; the 8-bit artifact is about 9.51 GB and
+does not fit an 8 GB budget with runtime and context cache headroom. Ornith is a
+reasoning model, so the MLX provider removes `<think>` blocks from user-visible
+content. It also stops generation before a repeated eight-token sequence and
+cancels the remaining stream.
+
+Do not promote or make Ornith the shared default based on its published coding
+benchmarks alone. Compare it with the Qwen fallback on this repository's held-
+out grounded-answer cases, latency, peak memory, Korean output, citations, and
+repetition rate first.
+
+The checked-in comparison suite treats English grounded and coding cases as the
+main signal. Korean and Japanese cases are secondary translation checks. Its
+local report stays private under `.local/evaluations/model-comparison.json`.
+
+- Model card: <https://huggingface.co/ornith-ai/Ornith-1.5-9B>
+- Official MLX 4-bit build:
+  <https://huggingface.co/ornith-ai/Ornith-1.5-9B-MLX-4bit>
