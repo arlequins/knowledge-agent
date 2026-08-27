@@ -91,4 +91,75 @@ describe("createLiveCapabilityMcpTools", () => {
       { available: false, capability: "notices.listRecent" },
     );
   });
+
+  it("rejects malformed workspace and limit inputs", async () => {
+    const [noticeTool] = createLiveCapabilityMcpTools({
+      assertMember: async () => {},
+      liveCapabilities: createConfiguredLiveCapabilities(
+        JSON.stringify({
+          notices: [
+            {
+              id: "notice-1",
+              publishedAt: "2026-08-27T00:00:00.000Z",
+              summary: "Maintenance",
+              title: "Maintenance notice",
+            },
+          ],
+        }),
+      ),
+    });
+    await expect(
+      noticeTool?.authorize?.(context, { workspaceId: "" }),
+    ).resolves.toBe(false);
+    await expect(
+      noticeTool?.execute(context, {
+        limit: "many",
+        workspaceId: "workspace-1",
+      }),
+    ).rejects.toThrow("limit must be a number");
+  });
+
+  it("bounds vehicle date ranges and rejects reversed dates", async () => {
+    const [_, vehicleTool] = createLiveCapabilityMcpTools({
+      assertMember: async () => {},
+      liveCapabilities: createConfiguredLiveCapabilities(
+        JSON.stringify({
+          soldVehicles: [
+            {
+              id: "vehicle-1",
+              make: "Example",
+              model: "One",
+              price: 1,
+              soldAt: "2026-08-26T00:00:00.000Z",
+              year: 2024,
+            },
+          ],
+        }),
+      ),
+    });
+    const result = await vehicleTool?.execute(context, {
+      from: "2026-08-25T00:00:00.000Z",
+      limit: 50,
+      to: "2026-08-27T00:00:00.000Z",
+      workspaceId: "workspace-1",
+    });
+    expect(result).toMatchObject({
+      available: true,
+      capability: "vehicles.listSold",
+      rows: [{ id: "vehicle-1" }],
+    });
+    await expect(
+      vehicleTool?.execute(context, {
+        from: "2026-08-27T00:00:00.000Z",
+        to: "2026-08-25T00:00:00.000Z",
+        workspaceId: "workspace-1",
+      }),
+    ).rejects.toThrow("from must be before to");
+    await expect(
+      vehicleTool?.execute(context, {
+        from: "not-a-date",
+        workspaceId: "workspace-1",
+      }),
+    ).rejects.toThrow("from and to must be valid dates");
+  });
 });
