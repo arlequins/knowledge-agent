@@ -27,6 +27,8 @@ local application; the pages below explain design decisions and ongoing work.
   quotas, backups, and retrieval-incident recovery.
 - [Local agent demo](local-agent-demo.md): run PostgreSQL, Google or local
   sign-in, Ollama/MLX, repository indexing, and official technology retrieval.
+- [Remote MCP](mcp.md): opt-in OAuth-protected JSON-RPC tools and live-data
+  authorization rules.
 - [Local reviewed fine-tuning](local-finetuning.md): evidence-gated LoRA
   training, promotion, rollback, the accepted reference run, and the local
   daily schedule.

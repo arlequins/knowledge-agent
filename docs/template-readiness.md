@@ -85,6 +85,13 @@ its related code, tests, environment variables, and documentation.
   auditable resolution and status.
 - [x] Optional post-promotion reload hook with atomic pointer rollback on failure.
 
+## External integrations
+
+- [x] Opt-in JSON-RPC MCP endpoint with bearer authentication, per-tool
+  workspace authorization, bounded allowlisted live results, and audit records.
+- [ ] Origin-allowlisted embedded iframe widget; define host-page session and
+  popup callback contracts before enabling it in a derived application.
+
 ## Adaptation Review
 
 Run `pnpm template:doctor` after initialization and whenever local setup changes.
