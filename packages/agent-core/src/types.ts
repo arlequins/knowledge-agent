@@ -38,6 +38,7 @@ export type AgentInput = {
   abortSignal?: AbortSignal;
   conversationSummary?: string;
   history: ModelMessage[];
+  liveEvidence?: string[];
   profile: AgentProfile;
   question: string;
   retrievalQuery?: string;

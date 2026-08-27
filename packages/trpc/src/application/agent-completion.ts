@@ -2,6 +2,10 @@ import type { Citation } from "@arlequins/agent-core";
 import { createAgentRuntime } from "@arlequins/agent-core";
 import type { AgentJobLease } from "../adaptors/agent-platform";
 import type { TRPCServices } from "../context";
+import {
+  createConfiguredLiveCapabilities,
+  liveEvidenceForQuestion,
+} from "./live-capabilities";
 
 export type AgentCompletionInput = {
   conversationId: string;
@@ -64,6 +68,16 @@ export async function* streamAgentCompletion(
       actor,
       input.conversationId,
     );
+    const live = await liveEvidenceForQuestion(
+      services.liveCapabilities ?? createConfiguredLiveCapabilities(),
+      actor,
+      input.question,
+    );
+    if (live.capability)
+      await services.agent.recordLiveCapabilityAccess?.(actor, {
+        available: live.available,
+        capability: live.capability,
+      });
     const runtime = createAgentRuntime({
       knowledgeSearch: services.knowledgeSearch,
       memorySearch: services.memorySearch,
@@ -84,6 +98,7 @@ export async function* streamAgentCompletion(
         name: "Personal assistant",
         workspaceId: input.workspaceId,
       },
+      liveEvidence: live.evidence,
       question: input.question,
       retrievalQuery: retrievalQueryForConversation(
         input.question,

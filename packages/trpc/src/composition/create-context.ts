@@ -9,6 +9,7 @@ import {
 } from "../adaptors/agent-retrieval";
 import { createModelCredentialRepository } from "../adaptors/model-credential";
 import { deriveTemplateSession } from "../adaptors/oidc-identity";
+import { createConfiguredLiveCapabilities } from "../application/live-capabilities";
 import type { CreateTRPCContextOptions, TRPCContext } from "../context";
 import { resolveModelProviders } from "./model-providers";
 
@@ -25,6 +26,9 @@ const agent = createAgentPlatformRepository(db);
 const modelCredentials = createModelCredentialRepository(
   db,
   serverEnv.MODEL_CREDENTIAL_ENCRYPTION_KEY,
+);
+const liveCapabilities = createConfiguredLiveCapabilities(
+  serverEnv.LIVE_CAPABILITIES_JSON,
 );
 
 export async function createTRPCContext(
@@ -64,6 +68,7 @@ export async function createTRPCContext(
       modelId: providers.modelId,
       modelCatalog: providers.catalog,
       modelCredentials,
+      liveCapabilities,
     },
   };
 }

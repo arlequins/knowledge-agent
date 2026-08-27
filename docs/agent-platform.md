@@ -42,6 +42,14 @@ paths. The public repository contains configuration and public fixtures only.
 
 ## Authorization and citations
 
+Live business questions are routed only to the explicitly registered
+`notices.listRecent` and `vehicles.listSold` capabilities. The local pilot can
+load a bounded `LIVE_CAPABILITIES_JSON` snapshot; production replaces this
+adapter with an Aurora/tRPC implementation without changing the chat contract.
+Only allowlisted fields are serialized, result counts are capped, and an
+unavailable capability produces an explicit unknown answer instead of falling
+back to static documentation.
+
 Every database query is scoped by a verified OIDC identity and workspace
 membership. Retrieved chunks retain a document label and a file, heading, line,
 or canonical URL locator. The model receives these labels with the evidence,

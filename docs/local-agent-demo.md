@@ -108,6 +108,24 @@ The service endpoints are:
 | Ollama | `http://127.0.0.1:11434` |
 | Optional MLX | `http://127.0.0.1:8000/v1/models` |
 
+## Try a current-data question locally
+
+The pilot includes a bounded, read-only JSON adapter so current-data routing can
+be exercised without copying production records into the public repository.
+Put a small, synthetic snapshot in the ignored `.env.localhost` file (never in
+`.env.localhost.example` or Git):
+
+```dotenv
+LIVE_CAPABILITIES_JSON={"notices":[{"id":"notice-1","publishedAt":"2026-08-27T01:00:00.000Z","title":"휴무 안내","summary":"이번 주 금요일은 휴무입니다.","url":"https://example.com/notices/notice-1"}],"soldVehicles":[{"id":"vehicle-1","soldAt":"2026-08-26T09:30:00.000Z","make":"Toyota","model":"Prius","year":2022,"price":2885297}]}
+```
+
+Ask `새로운 공지사항이 있으면 알려줘` or `일주일 이내에 판매된 차량을
+보여줘`. The answer receives only the allowlisted fields, a bounded number of
+rows, and an `observedAt` label. If the capability is absent, the assistant
+must say that current data cannot be checked; it must not infer a result from
+old documentation. The production adapter should replace this fixture with
+workspace-scoped Aurora/tRPC queries and retain the same port contract.
+
 `pnpm db:stop` stops the local database while preserving its Docker volume.
 
 ## Common startup failures

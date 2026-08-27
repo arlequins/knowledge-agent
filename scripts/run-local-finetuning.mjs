@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, readFile, rename, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readlink,
+  rename,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { resolve } from "node:path";
 import { scoreTuningProbe } from "./tuning-quality.mjs";
 
@@ -18,6 +26,7 @@ const baseModel = baseModelSource;
 const iterations = process.env.LOCAL_TUNING_ITERS ?? "40";
 const maximumSequenceLength = process.env.LOCAL_TUNING_MAX_SEQ_LENGTH ?? "768";
 const tunedLayers = process.env.LOCAL_TUNING_NUM_LAYERS ?? "2";
+const reloadCommand = process.env.LOCAL_TUNING_RELOAD_COMMAND?.trim();
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -129,6 +138,31 @@ await writeFile(
 if (!passed)
   throw new Error("Tuned candidate failed its evidence regression gate");
 
+const previousTarget = await readlink(current).catch(() => undefined);
 await symlink(adapters, candidate);
 await rename(candidate, current);
+if (reloadCommand) {
+  const reload = spawnSync(process.env.SHELL ?? "zsh", ["-lc", reloadCommand], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      KNOWLEDGE_AGENT_ADAPTER_PATH: adapters,
+      KNOWLEDGE_AGENT_RELOAD_REASON: "promoted",
+    },
+    stdio: "inherit",
+  });
+  if (reload.status !== 0) {
+    const rollback = resolve(tuningRoot, `.rollback-${runId}`);
+    if (previousTarget) {
+      await symlink(previousTarget, rollback);
+      await rename(rollback, current);
+    } else {
+      await unlink(current).catch(() => undefined);
+    }
+    throw new Error(
+      "Model reload failed; the previous adapter pointer was restored",
+    );
+  }
+}
 console.log(`Promoted reviewed LoRA adapter: ${adapters}`);

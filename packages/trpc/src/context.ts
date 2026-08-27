@@ -9,6 +9,7 @@ import type { AuthSession, TRPCAuth } from "@arlequins/auth";
 import type { Logger, Telemetry } from "@arlequins/logger";
 import type { createAgentPlatformRepository } from "./adaptors/agent-platform";
 import type { ModelCredentialRepository } from "./adaptors/model-credential";
+import type { LiveCapabilityPort } from "./application/live-capabilities";
 import type { ModelCatalog } from "./composition/model-providers";
 
 export type TRPCServices = {
@@ -21,6 +22,7 @@ export type TRPCServices = {
   documentExtraction: DocumentExtractionPort;
   knowledgeSearch: KnowledgeSearchPort;
   memorySearch: MemorySearchPort;
+  liveCapabilities: LiveCapabilityPort;
 };
 
 export type TRPCContext = {

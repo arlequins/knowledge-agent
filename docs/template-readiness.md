@@ -83,7 +83,7 @@ its related code, tests, environment variables, and documentation.
   outside the public repository.
 - [x] The pilot provides an owner-only investigation review UI/API with an
   auditable resolution and status.
-- [ ] Automatic post-promotion model reload remains application-specific work.
+- [x] Optional post-promotion reload hook with atomic pointer rollback on failure.
 
 ## Adaptation Review
 

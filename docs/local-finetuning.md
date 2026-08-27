@@ -210,10 +210,13 @@ The installer configures `.env.localhost` with the loopback MLX endpoint and
 current base model. The running API must then read that environment. If the API
 was already running with a different provider configuration, restart it.
 
-Current limitation: the daily job promotes a successful adapter but does not
-restart an already loaded MLX server by itself. Until an explicit safe reload
-step is implemented, verify the daily log and refresh the launch agents before
-expecting a newly promoted adapter in application responses.
+The daily job supports an optional, explicit reload hook after promotion. Set
+`LOCAL_TUNING_RELOAD_COMMAND` in the protected launch-agent environment to a
+command that restarts or reloads the serving process. The command receives
+`KNOWLEDGE_AGENT_ADAPTER_PATH` and `KNOWLEDGE_AGENT_RELOAD_REASON=promoted`.
+If the hook exits non-zero, the `current` pointer is atomically restored to its
+previous adapter and the run fails closed. When the hook is unset, promotion
+still succeeds but the serving process must be refreshed manually.
 
 Verify all layers, not just the model endpoint:
 
