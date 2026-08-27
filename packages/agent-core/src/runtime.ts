@@ -30,6 +30,9 @@ function contextMessage(
     input.conversationSummary
       ? `Conversation summary:\n${input.conversationSummary}`
       : undefined,
+    input.liveEvidence?.length
+      ? `Live business evidence (observed now; do not infer beyond these rows):\n${input.liveEvidence.join("\n\n")}`
+      : undefined,
     memories.length > 0
       ? `Relevant memory:\n${memories.join("\n")}`
       : undefined,

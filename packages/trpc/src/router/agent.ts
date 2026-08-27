@@ -14,9 +14,11 @@ import {
   memoryScopeInputSchema,
   messageCitationInputSchema,
   publishReleaseInputSchema,
+  recentNoticesInputSchema,
   reviewInvestigationInputSchema,
   reviewMemoryInputSchema,
   saveModelCredentialInputSchema,
+  soldVehiclesInputSchema,
   startIndexInputSchema,
   submitFeedbackInputSchema,
   workspaceScopeInputSchema,
@@ -35,6 +37,33 @@ function actor(userId: string, workspaceId: string) {
 /** Workspace is taken from validated input and checked by the repository on every operation. */
 export const agentRouter = {
   models: protectedProcedure.query(({ ctx }) => ctx.services.modelCatalog),
+  liveCapabilities: protectedProcedure.query(({ ctx }) =>
+    ctx.services.liveCapabilities.catalog(),
+  ),
+  recentNotices: protectedProcedure
+    .input(recentNoticesInputSchema)
+    .query(async ({ ctx, input }) => {
+      const actorInput = actor(ctx.session.user.id, input.workspaceId);
+      await ctx.services.agent.assertMember(actorInput);
+      return ctx.services.liveCapabilities.listRecentNotices(actorInput, {
+        limit: input.limit,
+      });
+    }),
+  soldVehicles: protectedProcedure
+    .input(soldVehiclesInputSchema)
+    .query(async ({ ctx, input }) => {
+      const actorInput = actor(ctx.session.user.id, input.workspaceId);
+      await ctx.services.agent.assertMember(actorInput);
+      const to = input.to ? new Date(input.to) : new Date();
+      const from = input.from
+        ? new Date(input.from)
+        : new Date(to.getTime() - 7 * 24 * 60 * 60 * 1_000);
+      return ctx.services.liveCapabilities.listSoldVehicles(actorInput, {
+        from: from.toISOString(),
+        limit: input.limit,
+        to: to.toISOString(),
+      });
+    }),
   modelCredentials: protectedProcedure.query(({ ctx }) =>
     ctx.services.modelCredentials.list(ctx.session.user.id),
   ),

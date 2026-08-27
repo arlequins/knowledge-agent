@@ -344,6 +344,7 @@ export function AgentChat() {
   const workspaces = useQuery(trpc.agent.workspaces.queryOptions());
   const modelCatalog = useQuery(trpc.agent.models.queryOptions());
   const modelCredentials = useQuery(trpc.agent.modelCredentials.queryOptions());
+  const liveCapabilities = useQuery(trpc.agent.liveCapabilities.queryOptions());
   const conversations = useQuery({
     ...trpc.agent.conversations.queryOptions({
       workspaceId: workspaceId ?? "",
@@ -1149,6 +1150,21 @@ export function AgentChat() {
           <p className="text-muted-foreground mt-2 text-xs">
             소유자만 문서 삭제와 기억 검토를 수행할 수 있습니다.
           </p>
+          <div className="mt-3 border-t pt-3">
+            <p className="text-sm font-medium">실시간 업무 데이터</p>
+            <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
+              {liveCapabilities.data?.map((capability) => (
+                <li key={capability.id}>
+                  {capability.id} ·{" "}
+                  {capability.available ? "사용 가능" : "구성 필요"}
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground mt-2 text-[11px]">
+              현재 공지와 판매 차량 질문은 구성된 live capability 결과만
+              사용합니다.
+            </p>
+          </div>
           {isOwner && workspaceId && (
             <form
               className="mt-3 flex gap-2"

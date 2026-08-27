@@ -34,6 +34,14 @@ export const createWorkspaceInputSchema = z.object({
   slug: workspaceSlug,
 });
 export const workspaceScopeInputSchema = z.object({ workspaceId: z.uuid() });
+export const recentNoticesInputSchema = workspaceScopeInputSchema.extend({
+  limit: z.number().int().min(1).max(20).default(10),
+});
+export const soldVehiclesInputSchema = workspaceScopeInputSchema.extend({
+  from: z.iso.datetime().optional(),
+  limit: z.number().int().min(1).max(20).default(20),
+  to: z.iso.datetime().optional(),
+});
 export const createConversationInputSchema = workspaceScopeInputSchema.extend({
   title: z.string().trim().min(1).max(256).optional(),
 });

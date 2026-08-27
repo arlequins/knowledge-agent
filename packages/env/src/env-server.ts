@@ -156,6 +156,8 @@ export const serverEnv = createEnv({
     MLX_MODEL: z.string().min(1).optional(),
     /** Base64-encoded 32-byte key used to encrypt user-provided model credentials at rest. */
     MODEL_CREDENTIAL_ENCRYPTION_KEY: z.string().min(43).optional(),
+    /** Optional JSON snapshot for the local live-capability adapter; production hosts should bind Aurora. */
+    LIVE_CAPABILITIES_JSON: z.string().optional(),
   },
   runtimeEnv: {
     SST_STAGE: process.env.SST_STAGE,
@@ -229,6 +231,7 @@ export const serverEnv = createEnv({
     MLX_MODEL: process.env.MLX_MODEL,
     MODEL_CREDENTIAL_ENCRYPTION_KEY:
       process.env.MODEL_CREDENTIAL_ENCRYPTION_KEY,
+    LIVE_CAPABILITIES_JSON: process.env.LIVE_CAPABILITIES_JSON,
   },
   emptyStringAsUndefined: true,
   skipValidation: skipEnvValidation,

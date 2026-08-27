@@ -93,9 +93,21 @@ export function createAgentPlatformRepository(database: Database) {
     });
   }
 
+  async function recordLiveCapabilityAccess(
+    actor: WorkspaceActor,
+    input: { available: boolean; capability: string },
+  ) {
+    await assertMember(actor);
+    await audit(actor, "live-capability.queried", undefined, {
+      available: input.available,
+      capability: input.capability,
+    });
+  }
+
   return {
     assertMember,
     assertOwner,
+    recordLiveCapabilityAccess,
     async acquireJob(
       userId: string,
       input: { estimatedDurationMs?: number; kind: string },
