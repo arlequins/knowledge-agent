@@ -334,6 +334,9 @@ export function AgentChat() {
     useState<ModelChoice>(DEFAULT_MODEL_CHOICE);
   const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
   const [modelSettingsError, setModelSettingsError] = useState<string>();
+  const [investigationDrafts, setInvestigationDrafts] = useState<
+    Record<string, string>
+  >({});
   const abortControllerRef = useRef<AbortController>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
@@ -390,6 +393,12 @@ export function AgentChat() {
   });
   const evaluationRuns = useQuery({
     ...trpc.agent.evaluationRuns.queryOptions({
+      workspaceId: workspaceId ?? "",
+    }),
+    enabled: Boolean(workspaceId && isOwner),
+  });
+  const investigations = useQuery({
+    ...trpc.agent.investigations.queryOptions({
       workspaceId: workspaceId ?? "",
     }),
     enabled: Boolean(workspaceId && isOwner),
@@ -543,6 +552,17 @@ export function AgentChat() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({
           queryKey: trpc.agent.evaluationRuns.queryKey({
+            workspaceId: workspaceId ?? "",
+          }),
+        });
+      },
+    }),
+  );
+  const reviewInvestigation = useMutation(
+    trpc.agent.reviewInvestigation.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.agent.investigations.queryKey({
             workspaceId: workspaceId ?? "",
           }),
         });
@@ -1166,6 +1186,101 @@ export function AgentChat() {
             </ul>
           ) : null}
         </details>
+        {isOwner ? (
+          <details className="mt-5 border-t pt-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              조사 요청 검토
+            </summary>
+            <p className="text-muted-foreground mt-2 text-xs">
+              사용자가 조사 요청으로 표시한 답변을 확인하고, 근거를 검토한
+              결과만 기록합니다.
+            </p>
+            {investigations.data?.length ? (
+              <ul className="mt-3 space-y-3 text-xs">
+                {investigations.data.slice(0, 10).map((investigation) => {
+                  const resolution =
+                    investigationDrafts[investigation.id] ??
+                    investigation.resolution ??
+                    "";
+                  return (
+                    <li
+                      className="space-y-2 rounded-md border p-3"
+                      key={investigation.id}
+                    >
+                      <p className="font-medium">
+                        {investigation.status} · {investigation.feedbackKind}
+                      </p>
+                      {investigation.feedbackComment ? (
+                        <p className="text-muted-foreground whitespace-pre-wrap">
+                          {investigation.feedbackComment}
+                        </p>
+                      ) : null}
+                      <Textarea
+                        aria-label={`조사 결과 ${investigation.id}`}
+                        onChange={(event) =>
+                          setInvestigationDrafts((current) => ({
+                            ...current,
+                            [investigation.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="검토한 근거와 결론을 기록하세요."
+                        value={resolution}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          disabled={
+                            reviewInvestigation.isPending || !resolution.trim()
+                          }
+                          onClick={() =>
+                            workspaceId &&
+                            reviewInvestigation.mutate({
+                              investigationId: investigation.id,
+                              resolution,
+                              status: "completed",
+                              workspaceId,
+                            })
+                          }
+                          size="sm"
+                          type="button"
+                        >
+                          승인 기록
+                        </Button>
+                        <Button
+                          disabled={
+                            reviewInvestigation.isPending || !resolution.trim()
+                          }
+                          onClick={() =>
+                            workspaceId &&
+                            reviewInvestigation.mutate({
+                              investigationId: investigation.id,
+                              resolution,
+                              status: "rejected",
+                              workspaceId,
+                            })
+                          }
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          반려 기록
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground mt-3 text-xs">
+                대화에서 조사 요청 피드백이 저장되면 여기에 표시됩니다.
+              </p>
+            )}
+            {reviewInvestigation.isError ? (
+              <p className="text-destructive mt-2 text-xs" role="alert">
+                {messageError(reviewInvestigation.error)}
+              </p>
+            ) : null}
+          </details>
+        ) : null}
         {isOwner ? (
           <details className="mt-5 border-t pt-4">
             <summary className="cursor-pointer text-sm font-medium">

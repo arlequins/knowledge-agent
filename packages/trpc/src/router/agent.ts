@@ -14,6 +14,7 @@ import {
   memoryScopeInputSchema,
   messageCitationInputSchema,
   publishReleaseInputSchema,
+  reviewInvestigationInputSchema,
   reviewMemoryInputSchema,
   saveModelCredentialInputSchema,
   startIndexInputSchema,
@@ -111,6 +112,22 @@ export const agentRouter = {
         actor(ctx.session.user.id, input.workspaceId),
       ),
     ),
+  investigations: protectedProcedure
+    .input(workspaceScopeInputSchema)
+    .query(({ ctx, input }) =>
+      ctx.services.agent.listInvestigations(
+        actor(ctx.session.user.id, input.workspaceId),
+      ),
+    ),
+  reviewInvestigation: protectedProcedure
+    .input(reviewInvestigationInputSchema)
+    .mutation(({ ctx, input }) => {
+      const { investigationId, resolution, status, workspaceId } = input;
+      return ctx.services.agent.reviewInvestigation(
+        actor(ctx.session.user.id, workspaceId),
+        { investigationId, resolution, status },
+      );
+    }),
   activeRelease: protectedProcedure
     .input(workspaceScopeInputSchema)
     .query(async ({ ctx, input }) => {
