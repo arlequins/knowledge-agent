@@ -1,3 +1,8 @@
+export type {
+  AuroraLiveCapabilitiesOptions,
+  AuroraLiveQueries,
+} from "./adaptors/aurora-live-capabilities";
+export { createAuroraLiveCapabilities } from "./adaptors/aurora-live-capabilities";
 export { createLiveCapabilityMcpTools } from "./application/mcp-tools";
 export { createTRPCContext } from "./composition/create-context";
 export { createKnowledgeMcpServer } from "./composition/mcp";
