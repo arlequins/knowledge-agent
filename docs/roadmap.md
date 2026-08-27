@@ -23,7 +23,8 @@
 ## Phase 2: embedded chat and MCP
 
 - Origin-allowlisted iframe widget with popup authentication.
-- Remote MCP endpoint with scoped OAuth authorization.
+- [x] Remote MCP endpoint with scoped OAuth authorization (opt-in; live tools
+  enforce workspace membership, bounded output, and audit logging).
 - Shared conversation history across web, widget, and MCP channels.
 
 ## Phase 3: live business data

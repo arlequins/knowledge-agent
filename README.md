@@ -106,6 +106,9 @@ Read the [fine-tuning runbook](docs/local-finetuning.md) before approving data
 or promoting an adapter. For model-specific Mac, EC2, and Bedrock guidance, use
 the [model playbook](docs/model-playbook.md).
 
+The optional remote integration is documented in [MCP operations](docs/mcp.md).
+It remains disabled until `MCP_ENABLED=true` is explicitly configured.
+
 ## Useful commands
 
 | Command | Purpose |

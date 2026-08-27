@@ -62,6 +62,7 @@ export const LambdaEnvironment = {
   ...(serverEnv.AUTH_ALLOWED_EMAILS
     ? { AUTH_ALLOWED_EMAILS: serverEnv.AUTH_ALLOWED_EMAILS }
     : {}),
+  MCP_ENABLED: String(serverEnv.MCP_ENABLED),
   AUTH_PROVIDER: serverEnv.AUTH_PROVIDER,
   OIDC_ALLOWED_ALGORITHMS: serverEnv.OIDC_ALLOWED_ALGORITHMS ?? "RS256",
   API_CORS_ORIGINS:

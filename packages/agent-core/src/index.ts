@@ -1,6 +1,14 @@
 export { createTextDocumentExtraction } from "./document-extraction";
 export { evaluateRetrievalCase } from "./evaluation";
 export type {
+  McpRequest,
+  McpRequestContext,
+  McpResponse,
+  McpServer,
+  McpToolDefinition,
+} from "./mcp";
+export { createMcpServer } from "./mcp";
+export type {
   AgentWorkflowPort,
   DocumentExtractionPort,
   DocumentSourcePort,

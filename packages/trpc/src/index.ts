@@ -1,4 +1,6 @@
+export { createLiveCapabilityMcpTools } from "./application/mcp-tools";
 export { createTRPCContext } from "./composition/create-context";
+export { createKnowledgeMcpServer } from "./composition/mcp";
 export {
   ModelSelectionError,
   modelSelectionHeaders,
