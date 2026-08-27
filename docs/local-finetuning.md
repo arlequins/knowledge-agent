@@ -72,11 +72,12 @@ An owner or trusted operator must:
 - record `expectedTerms` that a valid answer must contain; and
 - record `forbiddenTerms` for known hallucinations or unsafe conflations.
 
-The current pilot has no general-purpose owner approval screen. Approval is an
-operator-mediated database action and must be performed as one reviewed
-transaction with an audit record. A production profile should expose the same
-contract through an owner-only API/UI rather than granting operators broad
-database access.
+The pilot exposes an owner-only investigation review workbench in the chat
+sidebar. It lists queued investigations, preserves the user's feedback as a
+report, and records a completed or rejected resolution through an audited
+workspace-scoped API. It never promotes a correction directly into model
+weights. Automatic model-process reload after a promoted adapter remains a
+deployment-specific step.
 
 An approved investigation has this logical shape:
 

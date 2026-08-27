@@ -30,6 +30,8 @@ local application; the pages below explain design decisions and ongoing work.
 - [Local reviewed fine-tuning](local-finetuning.md): evidence-gated LoRA
   training, promotion, rollback, the accepted reference run, and the local
   daily schedule.
+- [Investigation review workbench](review-workbench.md): owner-only review of
+  user investigation requests before they become evaluation or tuning input.
 - [Model selection and operating playbook](model-playbook.md): Ornith, Qwen,
   Gemma/Ollama, OpenAI, Gemini, Bedrock, and EC2 self-hosting guidance.
 - [SST local testing](sst-local-testing.md): what can be validated without SST

@@ -81,8 +81,9 @@ its related code, tests, environment variables, and documentation.
   eight-token sequence.
 - [x] Private datasets, adapters, reports, and personal provider keys remain
   outside the public repository.
-- [ ] A production owner-review UI/API and automatic post-promotion model reload
-  remain application-specific work.
+- [x] The pilot provides an owner-only investigation review UI/API with an
+  auditable resolution and status.
+- [ ] Automatic post-promotion model reload remains application-specific work.
 
 ## Adaptation Review
 
