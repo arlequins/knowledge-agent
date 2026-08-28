@@ -100,13 +100,8 @@ the browser manually for Google sign-in or run the isolated E2E profile.
 
 To use real Google authentication locally, create a Google OAuth 2.0 client of
 type **Web application**, add `http://localhost:3000` to its authorized
-JavaScript origins, and apply its public client ID plus the single allowed
-account before restarting the app:
-
-```bash
-pnpm auth:google:local -- <client-id>.apps.googleusercontent.com owner@example.com
-pnpm dev:local
-```
+JavaScript origins, then run the configuration command above with its public
+client ID and the single allowed account before restarting the app.
 
 The browser keeps the short-lived Google credential only for the current tab.
 The API independently verifies Google's signature, issuer, audience, expiry,
