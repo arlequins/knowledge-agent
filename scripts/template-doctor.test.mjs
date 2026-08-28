@@ -5,6 +5,7 @@ import {
   evaluateEnvironment,
   parseDoctorArgs,
   parseEnv,
+  shouldProbeOidcProvider,
 } from "./template-doctor.mjs";
 
 describe("template doctor", () => {
@@ -62,6 +63,26 @@ describe("template doctor", () => {
     assert.equal(
       results.find(({ name }) => name === "google-auth-contract")?.status,
       "pass",
+    );
+    assert.equal(
+      shouldProbeOidcProvider({
+        env: {
+          AUTH_PROVIDER: "google",
+          OIDC_ISSUER_URL: "https://accounts.google.com",
+        },
+        features: ["auth"],
+      }),
+      false,
+    );
+    assert.equal(
+      shouldProbeOidcProvider({
+        env: {
+          AUTH_PROVIDER: "oidc",
+          OIDC_ISSUER_URL: "http://localhost:5556",
+        },
+        features: ["auth"],
+      }),
+      true,
     );
   });
 });

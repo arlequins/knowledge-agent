@@ -148,6 +148,14 @@ export function parseDoctorArgs(args) {
   return options;
 }
 
+export function shouldProbeOidcProvider({ env, features }) {
+  return !(
+    features.includes("auth") &&
+    env.AUTH_PROVIDER === "google" &&
+    env.OIDC_ISSUER_URL === "https://accounts.google.com"
+  );
+}
+
 export async function runDoctor(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const results = [];
@@ -217,7 +225,17 @@ export async function runDoctor(options = {}) {
       status: reachable ? "pass" : "warn",
     });
   }
-  if (features.includes("auth") && env.OIDC_ISSUER_URL) {
+  if (
+    features.includes("auth") &&
+    env.OIDC_ISSUER_URL &&
+    !shouldProbeOidcProvider({ env, features })
+  ) {
+    results.push({
+      detail: "Google issuer configured; external provider probe skipped",
+      name: "oidc-provider",
+      status: "pass",
+    });
+  } else if (features.includes("auth") && env.OIDC_ISSUER_URL) {
     const issuer = new URL(env.OIDC_ISSUER_URL);
     const reachable = await probe(
       issuer.hostname,
