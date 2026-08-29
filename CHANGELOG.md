@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/arlequins/knowledge-agent/compare/v0.4.0...v0.5.0) (2026-08-29)
+
+
+### Features
+
+* **agent:** add embedded chat and analyzer extension points ([93b5466](https://github.com/arlequins/knowledge-agent/commit/93b5466d7f576cfe41a3e28bec7e4c10594252e8))
+
+
+### Bug Fixes
+
+* **agent:** fall back to available local model ([84d7503](https://github.com/arlequins/knowledge-agent/commit/84d750324dcd37d7530f6534a11a7c49e54524af))
+* **agent:** make doctor checks provider-aware ([685f00b](https://github.com/arlequins/knowledge-agent/commit/685f00ba7dfe05b2f319069bea47ce8cfcbeed07))
+
+
+### Documentation
+
+* **agent:** clarify local auth evaluation modes ([ba78c9d](https://github.com/arlequins/knowledge-agent/commit/ba78c9d5ed1303922032165df36ea4125d418c3f))
+* **agent:** document local model reachability ([3a0c227](https://github.com/arlequins/knowledge-agent/commit/3a0c227427f00bda2b22def500c72a5f815320e3))
+* **agent:** remove repeated Google setup steps ([c454d4d](https://github.com/arlequins/knowledge-agent/commit/c454d4d0d178ce584d8e5a0a877699c96db276d5))
+
+
+### Tests
+
+* **agent:** cover legacy analyzer edge cases ([d439348](https://github.com/arlequins/knowledge-agent/commit/d439348f38826f4e21a2508ad07c91a30167e2ba))
+
 ## [0.4.0](https://github.com/arlequins/knowledge-agent/compare/v0.3.0...v0.4.0) (2026-08-27)
 
 
