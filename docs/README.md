@@ -1,5 +1,8 @@
 # Documentation
 
+Key extension guides: [embedded widget](embedded-widget.md), [Aurora live
+adapter](aurora-live-adapter.md), and [legacy analyzers](legacy-analyzers.md).
+
 Use this page as the entry point for project documentation. The root
 [README](../README.md) covers installation and the shortest path to a running
 local application; the pages below explain design decisions and ongoing work.

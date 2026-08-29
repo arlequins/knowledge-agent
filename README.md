@@ -68,20 +68,40 @@ pnpm knowledge:sync-official -- --workspace-id <uuid-from-ui>
 pnpm dev:local
 ```
 
-Open `http://localhost:3000`. The local identity provider accepts any non-empty
-username and password. The API is available at `http://localhost:5000`, with
-liveness at `/health/live`, readiness at `/health/ready`, and tRPC at
+Open `http://localhost:3000`. The API is available at `http://localhost:5000`,
+with liveness at `/health/live`, readiness at `/health/ready`, and tRPC at
 `/api/trpc`.
 
-To use real Google authentication locally, create a Google OAuth 2.0 client of
-type **Web application**, add `http://localhost:3000` to its authorized
-JavaScript origins, and apply its public client ID plus the single allowed
-account before restarting the app:
+### Local authentication modes
+
+The generated `.env.localhost` is configured for **Google mode** so the local
+pilot exercises the same verified identity path as deployment. Only the exact
+address in `AUTH_ALLOWED_EMAILS` can use the application. Configure the client
+ID and address before starting the app:
 
 ```bash
 pnpm auth:google:local -- <client-id>.apps.googleusercontent.com owner@example.com
 pnpm dev:local
 ```
+
+For a fully offline browser test, use the checked-in `.env.e2e` profile instead.
+It starts the development-only OIDC mock on an isolated port and accepts any
+non-empty username/password. The mock is intended for Playwright and local
+debugging only; it must never be deployed or used with production data:
+
+```bash
+pnpm test:e2e
+```
+
+`pnpm agent:evaluate` replays the grounded-answer suite against an already
+running app and therefore requires the OIDC test profile. It intentionally
+fails with an explanatory message when the app is running in Google mode; use
+the browser manually for Google sign-in or run the isolated E2E profile.
+
+To use real Google authentication locally, create a Google OAuth 2.0 client of
+type **Web application**, add `http://localhost:3000` to its authorized
+JavaScript origins, then run the configuration command above with its public
+client ID and the single allowed account before restarting the app.
 
 The browser keeps the short-lived Google credential only for the current tab.
 The API independently verifies Google's signature, issuer, audience, expiry,

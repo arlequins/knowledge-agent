@@ -84,7 +84,22 @@ function validateConfig(config) {
 
 async function signIn(page, baseUrl) {
   await page.goto(baseUrl, { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const signInButton = page.getByRole("button", {
+    name: "Sign in",
+    exact: true,
+  });
+  if ((await signInButton.count()) === 0) {
+    const googleSurface = page.getByLabel("Google로 로그인");
+    if ((await googleSurface.count()) > 0) {
+      throw new Error(
+        "Local agent evaluation requires the isolated OIDC test profile; the app is running in Google mode. Run `pnpm test:e2e` or start the app with .env.e2e before replaying the evaluator.",
+      );
+    }
+    throw new Error(
+      "Local agent evaluation could not find the OIDC test sign-in surface. Check that the web app is running with the local OIDC profile.",
+    );
+  }
+  await signInButton.click();
   await page
     .getByPlaceholder("Enter any login")
     .fill(process.env.LOCAL_AGENT_USER ?? "local-user");

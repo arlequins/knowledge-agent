@@ -22,16 +22,19 @@
 
 ## Phase 2: embedded chat and MCP
 
-- Origin-allowlisted iframe widget with popup authentication.
+- Origin-allowlisted iframe widget with an explicit host-session/popup
+  authentication contract ([embedded widget](embedded-widget.md)); production
+  popup handoff remains derived-application work.
 - [x] Remote MCP endpoint with scoped OAuth authorization (opt-in; live tools
   enforce workspace membership, bounded output, and audit logging).
 - Shared conversation history across web, widget, and MCP channels.
 
 ## Phase 3: live business data
 
-- Explicit read-only tRPC capability registry.
-- Typed tool execution with user/tenant authorization, bounded results, audit
-  records, and live-data citations.
+- [x] Explicit read-only tRPC capability registry.
+- [x] Typed tool execution with user/tenant authorization, bounded results, and
+  audit records ([Aurora adapter](aurora-live-adapter.md)); derived apps add
+  live-data persistence/citations to their business schema.
 - Initial announcement and recently sold vehicle query fixtures.
 
 ## Phase 4: evaluation and scale
@@ -47,7 +50,8 @@
 
 ## Phase 5: legacy analyzers
 
-- Add one language at a time, selected from real demand.
+- [x] Provider-neutral analyzer registry contract; add one parser at a time,
+  selected from real demand ([legacy analyzers](legacy-analyzers.md)).
 - Begin with project detection and symbol/route/data-model extraction; avoid a
   universal parser framework until the T3 contract has proved stable.
 - Candidates are Java/Spring, Ruby/Rails, and C#/ASP.NET.

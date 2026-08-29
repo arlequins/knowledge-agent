@@ -1,6 +1,18 @@
 export { createTextDocumentExtraction } from "./document-extraction";
 export { evaluateRetrievalCase } from "./evaluation";
 export type {
+  LegacyAnalysis,
+  LegacyAnalyzerPort,
+  LegacyAnalyzerRegistry,
+  LegacyDataModel,
+  LegacyLanguage,
+  LegacyLocation,
+  LegacyRoute,
+  LegacySource,
+  LegacySymbol,
+} from "./legacy-analyzer";
+export { createLegacyAnalyzerRegistry } from "./legacy-analyzer";
+export type {
   McpRequest,
   McpRequestContext,
   McpResponse,

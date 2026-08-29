@@ -48,7 +48,12 @@ NEXT_PUBLIC_OIDC_SCOPE=openid profile email
 
 ## Local Provider
 
-`pnpm dev:local` starts the development-only `@arlequins/oidc-mock` provider with PostgreSQL, the API, and the web app. It uses in-memory accounts and signing keys and must never be deployed as a production identity provider.
+`pnpm dev:local` starts the development-only `@arlequins/oidc-mock` provider
+alongside PostgreSQL, the API, and the web app. The generated
+`.env.localhost`, however, defaults the browser and API to Google mode; the
+mock is still started by the workspace but is not the active login provider in
+that mode. The mock uses in-memory accounts and signing keys and must never be
+deployed as a production identity provider.
 
 The complete local configuration is in `.env.localhost.example`. The Playwright suite uses `.env.e2e` and an isolated database to verify PKCE sign-in, JWT validation through discovery and JWKS, protected tRPC CRUD, and sign-out.
 
@@ -73,6 +78,12 @@ The browser credential remains in the current tab session. The API verifies
 Google's signature, issuer, audience, expiry, `email_verified` claim, and exact
 email allowlist before provisioning or loading application data. A successful
 Google popup alone is not authorization to a workspace.
+
+The automated `pnpm agent:evaluate` suite uses the isolated `.env.e2e` OIDC
+profile, not Google popup authentication. Run `pnpm test:e2e` for the complete
+isolated browser setup, or start an equivalent OIDC profile before replaying
+the evaluator. The evaluator fails early if it sees the Google sign-in surface
+so a provider mismatch is not mistaken for a model or retrieval failure.
 
 Keep the single-account allowlist as a pilot control. A multi-user deployment
 must replace it with an explicit membership/invitation policy and tests; never

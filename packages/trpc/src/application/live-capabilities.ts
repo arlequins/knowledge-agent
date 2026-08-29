@@ -42,14 +42,16 @@ const CAPABILITIES: Array<{ id: LiveCapabilityId; description: string }> = [
   { id: "vehicles.listSold", description: "기간 내 판매 차량을 조회합니다." },
 ];
 
-function boundedLimit(limit: number) {
+export function boundedLiveLimit(limit: number) {
   return Math.max(1, Math.min(20, Math.floor(limit)));
 }
 
-function safeNotice(value: LiveNotice): LiveNotice {
+export function sanitizeLiveNotice(value: LiveNotice): LiveNotice | undefined {
+  const publishedAt = new Date(value.publishedAt);
+  if (!Number.isFinite(publishedAt.getTime())) return undefined;
   return {
     id: value.id.slice(0, 128),
-    publishedAt: new Date(value.publishedAt).toISOString(),
+    publishedAt: publishedAt.toISOString(),
     summary: value.summary.slice(0, 1_000),
     title: value.title.slice(0, 256),
     ...(value.url?.startsWith("https://")
@@ -58,15 +60,23 @@ function safeNotice(value: LiveNotice): LiveNotice {
   };
 }
 
-function safeVehicle(value: SoldVehicle): SoldVehicle {
+export function sanitizeSoldVehicle(
+  value: SoldVehicle,
+): SoldVehicle | undefined {
+  const soldAt = new Date(value.soldAt);
+  if (!Number.isFinite(soldAt.getTime())) return undefined;
   return {
     id: value.id.slice(0, 128),
     make: value.make.slice(0, 64),
     model: value.model.slice(0, 128),
     price: Math.max(0, Math.round(value.price)),
-    soldAt: new Date(value.soldAt).toISOString(),
+    soldAt: soldAt.toISOString(),
     year: Math.max(1886, Math.min(2100, Math.round(value.year))),
   };
+}
+
+function defined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }
 
 export function createConfiguredLiveCapabilities(
@@ -78,10 +88,10 @@ export function createConfiguredLiveCapabilities(
       const parsed = JSON.parse(raw) as Config;
       config = {
         notices: Array.isArray(parsed.notices)
-          ? parsed.notices.map(safeNotice)
+          ? parsed.notices.map(sanitizeLiveNotice).filter(defined)
           : [],
         soldVehicles: Array.isArray(parsed.soldVehicles)
-          ? parsed.soldVehicles.map(safeVehicle)
+          ? parsed.soldVehicles.map(sanitizeSoldVehicle).filter(defined)
           : [],
       };
     } catch {
@@ -100,7 +110,7 @@ export function createConfiguredLiveCapabilities(
     listRecentNotices: async (_actor, input) =>
       [...(config.notices ?? [])]
         .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
-        .slice(0, boundedLimit(input.limit)),
+        .slice(0, boundedLiveLimit(input.limit)),
     listSoldVehicles: async (_actor, input) => {
       const from = Date.parse(input.from);
       const to = Date.parse(input.to);
@@ -110,7 +120,7 @@ export function createConfiguredLiveCapabilities(
           return soldAt >= from && soldAt <= to;
         })
         .sort((a, b) => Date.parse(b.soldAt) - Date.parse(a.soldAt))
-        .slice(0, boundedLimit(input.limit));
+        .slice(0, boundedLiveLimit(input.limit));
     },
   };
 }

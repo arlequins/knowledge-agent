@@ -89,8 +89,16 @@ its related code, tests, environment variables, and documentation.
 
 - [x] Opt-in JSON-RPC MCP endpoint with bearer authentication, per-tool
   workspace authorization, bounded allowlisted live results, and audit records.
-- [ ] Origin-allowlisted embedded iframe widget; define host-page session and
-  popup callback contracts before enabling it in a derived application.
+- [x] Origin-allowlisted `/embed` iframe shell with explicit parent-origin
+  configuration; host-page popup/session handoff remains disabled until a
+  derived app supplies one-time-code and nonce validation.
+
+## Extension contracts
+
+- [x] Provider-neutral legacy analyzer registry for Java, Ruby, C#, and future
+  languages, with bounded output and source provenance.
+- [x] Aurora live-capability adapter boundary that injects tenant-scoped
+  Drizzle queries without coupling the template to private business tables.
 
 ## Adaptation Review
 

@@ -24,6 +24,13 @@ does not guarantee that the API is listening on port 5000. Prefer
 `pnpm dev:local` for a complete first run. If the UI remains at
 `로그인 확인 중…`, check API readiness before debugging Google authentication.
 
+When both local chat runtimes are configured, the API probes the loopback MLX
+and Ollama endpoints and selects the first reachable provider in the configured
+order. A failed optional MLX endpoint therefore does not prevent an Ollama
+conversation; the reachability result is cached for five seconds. Confirm the
+effective provider and model in the chat composer before comparing evaluation
+runs.
+
 ## Alert policy
 
 | Signal | Warning | Urgent action |

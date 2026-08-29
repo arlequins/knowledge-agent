@@ -45,6 +45,57 @@ type ConfiguredModel = {
   provider: ModelProviderId;
 };
 
+type LocalAvailability = { checkedAt: number; available: boolean };
+const localAvailability = new Map<string, LocalAvailability>();
+const LOCAL_PROBE_TTL_MS = 5_000;
+
+/**
+ * Local development often keeps both MLX and Ollama configured. Prefer the
+ * first endpoint that is actually listening so a stale optional MLX setting
+ * does not make the chat look broken when Ollama is ready.
+ */
+async function localProviderAvailable(provider: ModelProviderId) {
+  const baseUrl =
+    provider === "mlx"
+      ? serverEnv.MLX_BASE_URL
+      : provider === "ollama"
+        ? serverEnv.OLLAMA_BASE_URL
+        : undefined;
+  if (!baseUrl) return false;
+  const cacheKey = `${provider}:${baseUrl}`;
+  const cached = localAvailability.get(cacheKey);
+  if (cached && Date.now() - cached.checkedAt < LOCAL_PROBE_TTL_MS)
+    return cached.available;
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const probeUrl =
+    provider === "mlx"
+      ? `${normalizedBaseUrl}/models`
+      : `${normalizedBaseUrl}/api/tags`;
+  let available = false;
+  try {
+    const response = await fetch(probeUrl, {
+      method: "GET",
+      signal: AbortSignal.timeout(750),
+    });
+    available = response.ok;
+  } catch {
+    available = false;
+  }
+  localAvailability.set(cacheKey, { available, checkedAt: Date.now() });
+  return available;
+}
+
+async function defaultConfiguredModel(models: ConfiguredModel[]) {
+  for (const candidate of models) {
+    if (candidate.provider === "mlx" || candidate.provider === "ollama") {
+      if (await localProviderAvailable(candidate.provider)) return candidate;
+      continue;
+    }
+    return candidate;
+  }
+  return models[0];
+}
+
 export class ModelSelectionError extends Error {
   override readonly name = "ModelSelectionError";
 }
@@ -116,8 +167,11 @@ function providerLabel(provider: ModelProviderId) {
   return "Amazon Bedrock";
 }
 
-function modelCatalog(serverModels: ConfiguredModel[]): ModelCatalog {
-  const defaultModel = serverModels[0];
+function modelCatalog(
+  serverModels: ConfiguredModel[],
+  selectedDefault?: ConfiguredModel,
+): ModelCatalog {
+  const defaultModel = selectedDefault ?? serverModels[0];
   const configured = serverModels.map((item) => ({
     id: item.provider,
     label: providerLabel(item.provider),
@@ -290,14 +344,12 @@ export async function resolveModelProviders(
   credentials: ModelCredentialRepository,
 ) {
   const serverModels = configuredServerModels();
-  const selected = await selectedModel(
-    headers,
-    serverModels,
-    userId,
-    credentials,
-  );
+  const requestedProvider = headers.get(MODEL_PROVIDER_HEADER)?.trim();
+  const selected = requestedProvider
+    ? await selectedModel(headers, serverModels, userId, credentials)
+    : await defaultConfiguredModel(serverModels);
   return {
-    catalog: modelCatalog(serverModels),
+    catalog: modelCatalog(serverModels, selected),
     embedding: embeddingProvider(),
     model: selected?.model,
     modelId: selected ? `${selected.provider}:${selected.modelId}` : undefined,
