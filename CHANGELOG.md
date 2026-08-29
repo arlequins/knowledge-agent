@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 * **agent:** add embedded chat and analyzer extension points ([93b5466](https://github.com/arlequins/knowledge-agent/commit/93b5466d7f576cfe41a3e28bec7e4c10594252e8))
-* **agent:** add embedded chat and analyzer extension points ([01732c3](https://github.com/arlequins/knowledge-agent/commit/01732c35ff9ef5a4fc1bcf467e938f989ae0dd8c))
 
 
 ### Bug Fixes
