@@ -66,7 +66,7 @@
     "sst:ws": "node ./scripts/sst-workspace.mjs",
     "test": "pnpm test:runtime && pnpm test:automation && pnpm test:template-init && pnpm architecture:check && turbo run test",
     "test:coverage": "dotenv -e .env.example -e .env -- vitest run --coverage --config vitest.coverage.config.ts",
-    "test:automation": "node --test scripts/validate-deployment-input.test.mjs scripts/evaluate-local-agent.test.mjs scripts/configure-local-google-auth.test.mjs scripts/tuning-quality.test.mjs",
+    "test:automation": "node --test scripts/validate-deployment-input.test.mjs scripts/validate-aws-smoke-config.test.mjs scripts/evaluate-local-agent.test.mjs scripts/configure-local-google-auth.test.mjs scripts/tuning-quality.test.mjs",
     "test:sst": "node scripts/test-sst.mjs",
     "test:runtime": "node --test scripts/check-runtime.test.mjs",
     "test:template-init": "node --test scripts/template-init.test.mjs scripts/template-doctor.test.mjs",

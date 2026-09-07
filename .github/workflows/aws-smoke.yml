@@ -22,8 +22,29 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
+  preflight:
     environment: sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      function_url: ${{ steps.endpoints.outputs.function_url }}
+      gateway_url: ${{ steps.endpoints.outputs.gateway_url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Validate sandbox endpoints
+        id: endpoints
+        env:
+          AWS_SMOKE_FUNCTION_URL: ${{ inputs.function_url || vars.AWS_SMOKE_FUNCTION_URL }}
+          AWS_SMOKE_GATEWAY_URL: ${{ inputs.gateway_url || vars.AWS_SMOKE_GATEWAY_URL }}
+        run: node scripts/validate-aws-smoke-config.mjs
+
+  smoke:
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -37,18 +58,17 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - name: Select sandbox URL
+      - name: Select validated sandbox URL
         id: endpoint
         env:
-          FUNCTION_URL: ${{ inputs.function_url || vars.AWS_SMOKE_FUNCTION_URL }}
-          GATEWAY_URL: ${{ inputs.gateway_url || vars.AWS_SMOKE_GATEWAY_URL }}
+          FUNCTION_URL: ${{ needs.preflight.outputs.function_url }}
+          GATEWAY_URL: ${{ needs.preflight.outputs.gateway_url }}
         run: |
           if [ "${{ matrix.preset }}" = "function-url" ]; then
             URL="$FUNCTION_URL"
           else
             URL="$GATEWAY_URL"
           fi
-          node -e 'const value = process.argv[1]; const url = new URL(value); if (url.protocol !== "https:") throw new Error("Smoke endpoint must use HTTPS");' "$URL"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
       - name: Smoke test
         run: node scripts/smoke-api.mjs "${{ steps.endpoint.outputs.url }}"
