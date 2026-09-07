@@ -128,7 +128,7 @@ export function createConfiguredLiveCapabilities(
 export function classifyLiveQuestion(
   question: string,
 ): LiveCapabilityId | undefined {
-  const normalized = question.toLocaleLowerCase();
+  const normalized = question.toLowerCase();
   if (/(공지|announcement|notice)/u.test(normalized))
     return "notices.listRecent";
   const asksForVehicle = ["차량", "자동차", "vehicle", "car"].some((term) =>
@@ -145,7 +145,10 @@ export async function liveEvidenceForQuestion(
   port: LiveCapabilityPort,
   actor: WorkspaceActor,
   question: string,
+  options: { now?: () => Date } = {},
 ) {
+  const now = options.now?.() ?? new Date();
+  const observedAt = now.toISOString();
   const capability = classifyLiveQuestion(question);
   if (!capability)
     return { capability: undefined, evidence: [] as string[], available: true };
@@ -165,12 +168,12 @@ export async function liveEvidenceForQuestion(
       evidence: rows.length
         ? rows.map(
             (row) =>
-              `[live: notices.listRecent · observedAt=${new Date().toISOString()}]\n${row.title}\n${row.summary}${row.url ? `\nURL: ${row.url}` : ""}`,
+              `[live: notices.listRecent · observedAt=${observedAt}]\n${row.title}\n${row.summary}${row.url ? `\nURL: ${row.url}` : ""}`,
           )
         : ["조회 결과가 없습니다."],
     };
   }
-  const to = new Date();
+  const to = now;
   const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1_000);
   const rows = await port.listSoldVehicles(actor, {
     from: from.toISOString(),
@@ -183,7 +186,7 @@ export async function liveEvidenceForQuestion(
     evidence: rows.length
       ? rows.map(
           (row) =>
-            `[live: vehicles.listSold · observedAt=${new Date().toISOString()}]\n${row.soldAt} · ${row.year} ${row.make} ${row.model} · ${row.price.toLocaleString()}원`,
+            `[live: vehicles.listSold · observedAt=${observedAt}]\n${row.soldAt} · ${row.year} ${row.make} ${row.model} · ${row.price.toLocaleString()}원`,
         )
       : ["최근 7일 조회 결과가 없습니다."],
   };

@@ -5,7 +5,11 @@
  * Java/Spring, Ruby/Rails, C#/ASP.NET, or any other analyser without changing
  * retrieval, chat, or persistence contracts.
  */
-export type LegacyLanguage = "csharp" | "java" | "ruby";
+export type LegacyLanguage =
+  | "csharp"
+  | "java"
+  | "ruby"
+  | (string & Record<never, never>);
 
 export type LegacySource = {
   content: string;
@@ -70,6 +74,7 @@ const MAX_DIAGNOSTICS = 20;
 const MAX_FIELDS = 50;
 const MAX_ITEMS = 100;
 const MAX_TEXT = 2_048;
+const LANGUAGE_ID = /^[a-z][a-z0-9+.#-]{0,63}$/u;
 
 function text(value: string, max = MAX_TEXT) {
   return value.trim().slice(0, max);
@@ -85,12 +90,38 @@ function location(value?: LegacyLocation): LegacyLocation | undefined {
   return startLine || endLine ? { endLine, startLine } : undefined;
 }
 
-function boundedAnalysis(value: LegacyAnalysis): LegacyAnalysis {
+function analyzedAt(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()))
+    throw new Error("Legacy analyzer returned an invalid analyzedAt timestamp");
+  return date.toISOString();
+}
+
+function boundedAnalysis(
+  value: LegacyAnalysis,
+  analyzer: LegacyAnalyzerPort,
+  input: LegacySource,
+): LegacyAnalysis {
+  const analyzerId = text(value.analyzerId, 128);
+  if (analyzerId !== analyzer.id)
+    throw new Error(
+      `Legacy analyzer identity mismatch: expected ${analyzer.id}, received ${analyzerId || "<empty>"}`,
+    );
+  if (!analyzer.languages.includes(value.language))
+    throw new Error(
+      `Legacy analyzer ${analyzer.id} returned unsupported language: ${value.language}`,
+    );
+  const expectedLanguage =
+    input.language ?? languageFromFilename(input.filename);
+  if (expectedLanguage && value.language !== expectedLanguage)
+    throw new Error(
+      `Legacy analyzer ${analyzer.id} returned ${value.language} for ${expectedLanguage} input`,
+    );
   const confidence = Number.isFinite(value.confidence)
     ? Math.max(0, Math.min(1, value.confidence))
     : 0;
   return {
-    analyzerId: text(value.analyzerId, 128),
+    analyzerId,
     confidence,
     dataModels: value.dataModels.slice(0, MAX_ITEMS).map((model) => ({
       fields: model.fields
@@ -107,8 +138,9 @@ function boundedAnalysis(value: LegacyAnalysis): LegacyAnalysis {
     language: value.language,
     ...(value.projectType ? { projectType: text(value.projectType, 256) } : {}),
     provenance: {
-      analyzedAt: new Date(value.provenance.analyzedAt).toISOString(),
-      sourceUri: text(value.provenance.sourceUri, 2_048),
+      analyzedAt: analyzedAt(value.provenance.analyzedAt),
+      // Provenance belongs to the caller-controlled source, not to a plug-in.
+      sourceUri: text(input.sourceUri, 2_048),
     },
     routes: value.routes.slice(0, MAX_ITEMS).map((route) => ({
       ...(route.handler ? { handler: text(route.handler, 256) } : {}),
@@ -125,11 +157,20 @@ function boundedAnalysis(value: LegacyAnalysis): LegacyAnalysis {
 }
 
 function languageFromFilename(filename: string): LegacyLanguage | undefined {
-  const lower = filename.toLocaleLowerCase();
-  if (lower.endsWith(".java")) return "java";
-  if (lower.endsWith(".rb") || lower.endsWith("gemfile")) return "ruby";
-  if (lower.endsWith(".cs") || lower.endsWith(".csproj")) return "csharp";
+  const basename = filename
+    .replaceAll("\\", "/")
+    .split("/")
+    .at(-1)
+    ?.toLowerCase();
+  if (!basename) return undefined;
+  if (basename.endsWith(".java")) return "java";
+  if (basename.endsWith(".rb") || basename === "gemfile") return "ruby";
+  if (basename.endsWith(".cs") || basename.endsWith(".csproj")) return "csharp";
   return undefined;
+}
+
+function sourceSnapshot(input: LegacySource): LegacySource {
+  return Object.freeze({ ...input });
 }
 
 /** Create a deterministic analyser registry with duplicate-id protection. */
@@ -137,31 +178,52 @@ export function createLegacyAnalyzerRegistry(
   analyzers: LegacyAnalyzerPort[],
 ): LegacyAnalyzerRegistry {
   const byId = new Set<string>();
-  for (const analyzer of analyzers) {
-    if (!analyzer.id.trim() || byId.has(analyzer.id))
+  const snapshots = analyzers.map((analyzer) => {
+    const id = text(analyzer.id, 128);
+    if (!id || byId.has(id))
       throw new Error(`Duplicate or empty legacy analyzer id: ${analyzer.id}`);
     if (!analyzer.languages.length)
       throw new Error(`Legacy analyzer has no languages: ${analyzer.id}`);
-    byId.add(analyzer.id);
-  }
-  const ordered = [...analyzers].sort((a, b) => a.id.localeCompare(b.id));
+    if (analyzer.languages.some((language) => !LANGUAGE_ID.test(language)))
+      throw new Error(`Legacy analyzer has an invalid language id: ${id}`);
+    byId.add(id);
+    return {
+      ...analyzer,
+      id,
+      languages: [...new Set(analyzer.languages)],
+    };
+  });
+  const ordered = snapshots.sort((a, b) => a.id.localeCompare(b.id));
+  const supports = (candidate: LegacyAnalyzerPort, input: LegacySource) => {
+    const language = input.language ?? languageFromFilename(input.filename);
+    return (
+      (!language || candidate.languages.includes(language)) &&
+      candidate.supports(input)
+    );
+  };
   return {
     analyze: async (input) => {
-      const analyzer = ordered.find((candidate) => candidate.supports(input));
+      const source = sourceSnapshot(input);
+      const analyzer = ordered.find((candidate) => supports(candidate, source));
       if (!analyzer) throw new Error("No legacy analyzer supports this source");
-      const result = await analyzer.analyze(input);
-      return boundedAnalysis(result);
+      const result = await analyzer.analyze(source);
+      return boundedAnalysis(result, analyzer, source);
     },
     detect: (input) => {
-      const language = input.language ?? languageFromFilename(input.filename);
+      const source = sourceSnapshot(input);
+      const language = source.language ?? languageFromFilename(source.filename);
       if (!language) return undefined;
       return ordered.some(
         (candidate) =>
-          candidate.languages.includes(language) && candidate.supports(input),
+          candidate.languages.includes(language) && supports(candidate, source),
       )
         ? language
         : undefined;
     },
-    list: () => [...ordered],
+    list: () =>
+      ordered.map((analyzer) => ({
+        ...analyzer,
+        languages: [...analyzer.languages],
+      })),
   };
 }

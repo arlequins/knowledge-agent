@@ -41,15 +41,28 @@ const multiLanguageAnalyzer: LegacyAnalyzerPort = {
 describe("legacy analyzer edge coverage", () => {
   it("detects C#, Ruby project files, and rejects unknown filenames", () => {
     const registry = createLegacyAnalyzerRegistry([multiLanguageAnalyzer]);
-    for (const filename of ["Program.cs", "project.csproj", "Gemfile"]) {
+    for (const filename of [
+      "Program.cs",
+      "project.csproj",
+      "Gemfile",
+      "repo/Gemfile",
+      "C:\\repo\\Gemfile",
+    ]) {
       expect(
         registry.detect({
           filename,
           content: "",
           sourceUri: `git://${filename}`,
         }),
-      ).toBe(filename === "Gemfile" ? "ruby" : "csharp");
+      ).toBe(filename.endsWith("Gemfile") ? "ruby" : "csharp");
     }
+    expect(
+      registry.detect({
+        content: "",
+        filename: "NotGemfile",
+        sourceUri: "git://NotGemfile",
+      }),
+    ).toBeUndefined();
     expect(
       registry.detect({
         content: "",

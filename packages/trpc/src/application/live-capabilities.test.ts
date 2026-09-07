@@ -48,9 +48,11 @@ describe("live capabilities", () => {
       port,
       actor,
       "일주일 이내 판매된 차량 목록을 보여줘",
+      { now: () => new Date("2026-08-27T00:00:00.000Z") },
     );
     expect(result.available).toBe(true);
     expect(result.evidence[0]).toContain("OpenAI Motors Pilot");
+    expect(result.evidence[0]).toContain("observedAt=2026-08-27T00:00:00.000Z");
     expect(result.evidence[0]).not.toContain("private@example.com");
   });
 
