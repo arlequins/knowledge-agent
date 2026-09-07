@@ -15,8 +15,11 @@ For file naming, mocking, and test design rules, see the
 Create a `sandbox` GitHub Environment and configure
 `AWS_SMOKE_FUNCTION_URL` and `AWS_SMOKE_GATEWAY_URL` as environment variables.
 Both values must be public HTTPS endpoints for disposable sandbox deployments.
-The scheduled workflow fails clearly when either endpoint is missing instead of
-silently skipping qualification.
+The workflow validates both endpoints once before starting its test matrix. It
+reports all missing or unsafe values together and does not start either smoke
+test until preflight succeeds. Scheduled runs intentionally fail when the
+sandbox is not configured instead of silently presenting an untested system as
+healthy.
 
 ```bash
 gh api --method PUT repos/OWNER/REPOSITORY/environments/sandbox
