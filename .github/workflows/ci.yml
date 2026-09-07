@@ -237,11 +237,19 @@ jobs:
       - name: Setup
         uses: ./tooling/github/setup
 
+      - name: Setup SST Bun runtime
+        id: bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.1
+
       - name: Copy env
         shell: bash
         run: cp .env.example .env
 
       - name: Validate SST without AWS credentials
+        env:
+          SST_BUN_PATH: ${{ steps.bun.outputs.bun-path }}
         run: pnpm test:sst
 
   test:

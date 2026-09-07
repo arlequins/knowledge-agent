@@ -12,6 +12,10 @@ For file naming, mocking, and test design rules, see the
 - AWS sandbox smoke tests validate both deployment presets on a schedule and on demand.
 - k6 baseline load tests are manual and target a dedicated non-production endpoint.
 
+The CI SST configuration check pins Bun 1.2.1, matching SST v4.17.1, and passes
+its cached executable through `SST_BUN_PATH`. When upgrading SST, review its
+runtime requirement and update the pinned Bun version in the same pull request.
+
 Create a `sandbox` GitHub Environment and configure
 `AWS_SMOKE_FUNCTION_URL` and `AWS_SMOKE_GATEWAY_URL` as environment variables.
 Both values must be public HTTPS endpoints for disposable sandbox deployments.
