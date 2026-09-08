@@ -97,6 +97,20 @@ pnpm agent:readiness --api-url http://localhost:5000
 pnpm agent:evaluate
 ```
 
+`agent:evaluate` opens a fresh conversation for every public case through the
+same browser, authentication, retrieval, completion, citation, and message
+storage path used by the chat UI. It is not a health check and it does not
+train model weights. The ignored `.local/evaluations/latest.json` report is
+owner-review evidence: it is bounded, mode `0600`, and never loaded back into
+the app as a prompt or configuration.
+
+The deterministic gate rejects an empty or duplicate case suite, missing
+required answer or citation terms, forbidden claims, repeated-sentence loops,
+and the same answer returned for more than one case. Passing it is a screening
+result, not proof that every claim is entailed by a citation; inspect the
+answer and cited source before approving a feedback-driven behavior or model
+change. Run a baseline and held-out cases again after an approved improvement.
+
 The service endpoints are:
 
 | Service | URL |

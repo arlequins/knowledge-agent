@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyAnswerQualityGates,
+  hasRepeatedSentence,
   scoreEvaluationCase,
+  serializeEvaluationReport,
   summarizeEvaluation,
+  validateConfig,
 } from "./evaluate-local-agent.mjs";
 
 describe("local agent evaluation", () => {
@@ -84,5 +88,79 @@ describe("local agent evaluation", () => {
     );
     assert.equal(result.answerPassed, false);
     assert.equal(result.passed, false);
+  });
+
+  it("rejects duplicate cases, repeated loops, and duplicate answers", () => {
+    assert.throws(() =>
+      validateConfig({
+        cases: [
+          {
+            answerMustInclude: ["source"],
+            citationMustIncludeAny: ["README.md"],
+            id: "same",
+            question: "Q",
+          },
+          {
+            answerMustInclude: ["source"],
+            citationMustIncludeAny: ["README.md"],
+            id: "same",
+            question: "Q2",
+          },
+        ],
+        minimumPassRate: 1,
+        version: 1,
+      }),
+    );
+    assert.equal(
+      hasRepeatedSentence(
+        "This is a repeated sentence which must not be accepted. ".repeat(2),
+      ),
+      true,
+    );
+    const gated = applyAnswerQualityGates([
+      { answer: "A source-supported answer.", id: "one", passed: true },
+      { answer: "A source-supported answer.", id: "two", passed: true },
+    ]);
+    assert.equal(gated[0].passed, true);
+    assert.deepEqual(gated[1].qualityFailures, ["duplicate answer: one"]);
+    assert.equal(gated[1].passed, false);
+  });
+
+  it("persists bounded review evidence without runtime identifiers", () => {
+    const report = serializeEvaluationReport({
+      baseUrl: "http://localhost:3000",
+      completedAt: "2026-09-08T00:00:00.000Z",
+      configPath: "config/local-agent-evaluation.json",
+      model: "local-model",
+      results: [
+        {
+          answer: "Grounded answer",
+          answerMatches: [],
+          answerPassed: true,
+          citationMatches: [],
+          citationPassed: true,
+          citations: ["README.md — source"],
+          durationMs: 1,
+          forbiddenAnswerMatches: [],
+          id: "purpose",
+          passed: true,
+          privateMessageId: "not persisted",
+          qualityFailures: [],
+          question: "What is the purpose?",
+        },
+      ],
+      summary: { passed: 1 },
+    });
+    assert.equal(report.results[0].privateMessageId, undefined);
+    assert.throws(() =>
+      serializeEvaluationReport({
+        baseUrl: "http://localhost:3000",
+        completedAt: "now",
+        configPath: "config",
+        model: "model",
+        results: [],
+        summary: {},
+      }),
+    );
   });
 });
