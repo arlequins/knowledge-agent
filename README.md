@@ -136,7 +136,7 @@ It remains disabled until `MCP_ENABLED=true` is explicitly configured.
 | `pnpm dev:local` | Start the local database, identity provider, API, and web app. |
 | `pnpm agent:setup` | Create `.env.localhost` without overwriting existing values. |
 | `pnpm auth:google:local` | Configure real Google login and an exact local email allowlist. |
-| `pnpm agent:evaluate` | Replay the application-level grounded-answer suite. |
+| `pnpm agent:evaluate` | Replay isolated browser conversations through the running application and save bounded local review evidence; see [the demo verification guide](docs/local-agent-demo.md#verify-the-application). |
 | `pnpm agent:model:compare` | Compare checked-in local MLX model profiles. |
 | `pnpm agent:tune:daily` | Train and gate a candidate from approved evidence-backed feedback. |
 | `pnpm knowledge:index` | Index an approved document or source tree. |
