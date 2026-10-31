@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2](https://github.com/arlequins/knowledge-agent/compare/v0.5.1...v0.5.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* restore secure CI and integrate pending maintenance ([#30](https://github.com/arlequins/knowledge-agent/issues/30)) ([e7cb707](https://github.com/arlequins/knowledge-agent/commit/e7cb707b728ca10e32ab1b59ffe8cd8c77dd8480))
+* skip sandbox smoke when endpoints are unconfigured ([#31](https://github.com/arlequins/knowledge-agent/issues/31)) ([01ff296](https://github.com/arlequins/knowledge-agent/commit/01ff296a2487e6f980c91814a009658aae9ff70c))
+
 ## [0.5.1](https://github.com/arlequins/knowledge-agent/compare/v0.5.0...v0.5.1) (2026-09-07)
 
 
