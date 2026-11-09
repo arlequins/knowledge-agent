@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3](https://github.com/arlequins/knowledge-agent/compare/v0.5.2...v0.5.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* **cache:** bypass oversized S3 cache writes ([#37](https://github.com/arlequins/knowledge-agent/issues/37)) ([94f4582](https://github.com/arlequins/knowledge-agent/commit/94f4582df392959a17da2248c5ccf5662315d3da))
+
+
+### Build System
+
+* **deps:** bump actions/dependency-review-action from 4 to 5 ([#34](https://github.com/arlequins/knowledge-agent/issues/34)) ([c58ed3a](https://github.com/arlequins/knowledge-agent/commit/c58ed3a44d81f5c241260c485c782936d7457b4b))
+* **deps:** bump aws-actions/configure-aws-credentials from 5 to 6 ([#35](https://github.com/arlequins/knowledge-agent/issues/35)) ([8e00c3f](https://github.com/arlequins/knowledge-agent/commit/8e00c3fb2bc449b6bf51f884ca9477da507fcd17))
+* **deps:** bump pnpm/action-setup from 5 to 6 ([#33](https://github.com/arlequins/knowledge-agent/issues/33)) ([8b1c768](https://github.com/arlequins/knowledge-agent/commit/8b1c7681b792e750f38c72e09de53452276d6d75))
+
 ## [0.5.2](https://github.com/arlequins/knowledge-agent/compare/v0.5.1...v0.5.2) (2026-10-31)
 
 
